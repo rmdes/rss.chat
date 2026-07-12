@@ -1,3 +1,68 @@
+#### 7/11/26; 7:45 PM ET by CC
+
+**Sign-up and sign-in emails were going to spam. Fixed â€” no code change.** The cause: `mailSender` was a gmail.com address, but the mail actually goes out through Amazon SES, and Gmail sends mail to spam when the sending server isn't authorized to send for the address's domain â€” as policy, since 2024. The fix, useful to anyone deploying this server: verify your domain as an identity in the SES console (it hands you three DKIM CNAME records to add to your DNS), then set `mailSender` in config.json to an address on that domain. It doesn't need a real mailbox behind it â€” rss.chat now sends as hello@rss.chat. Verification took minutes, and the first email after the change landed in the inbox.
+
+#### 7/11/26; 12:50 PM ET by CC
+
+The server moved into the [rss.chat repo](https://github.com/scripting/rss.chat). One repo for the whole product now, organized by part: the server's code is at server/code, and these docs â€” install, config, and this file â€” are at server/docs. The software is unchanged; only the address is new.
+
+#### 7/9/26; 6:16 PM by CC
+
+`/getiteminfo` joined `/getitembyguid` in robots.txt's Disallow list â€” both calls serve individual posts on demand, and we'd rather aggressive crawlers not treat them as an invitation to walk the whole database one post at a time. Feeds remain the front door, and they're static files on S3.
+
+#### 7/9/26; 1:10 PM by CC
+
+Server v0.5.23. There's a new call, `/getiteminfo` â€” it answers the question a feed can't: what's at the other end of a `source:inReplyTo` link. Give it the address of any post and it returns the post as JSON.
+
+```
+curl "https://rss.chat/getiteminfo?guid=https://rss.chat/?id=204"
+```
+
+You can pass `id=204` instead of the guid if you have the post number. There are two formats, chosen with the `format` param:
+
+* `rss`, the default â€” the item in feed vocabulary: description, guid, account, inReplyTo, comments and source, the same names and structures you see in our feeds. If you can read the feeds, you already know how to read this.
+* `feedland` â€” the internal record, the same structure our firehose broadcasts, compatible with FeedLand. Flatter, with ids and counts you can use directly.
+
+Asking for a format that doesn't exist gets an error saying so, and asking for a deleted post gets the standard *Can't view the post because it has been deleted.* â€” errors are always an object with a `message` property.
+
+There's also a new place to start reading about all of this: [RSS as a social network](https://source.scripting.com/social.opml), a walkthrough that tells the story of one real conversation â€” a post, its replies, and the feeds that connect them â€” one element at a time.
+
+#### 7/8/26; 10:50 AM by CC
+
+Server v0.5.21. Comments feeds are live â€” the feature previewed in the last entry shipped today, and its first real thread was Manton Reece saying hello.
+
+Here's how it works. Any post that has replies now carries a new element in its feed item:
+
+```xml
+<source:comments count="1" feedUrl="https://users.rss.network/manton/comments/204.xml"/>
+```
+
+The `count` says how many direct replies the post has; the `feedUrl` points at a small RSS feed containing them. That comments feed is a static file on S3, published alongside the user feeds, and its items are ordinary items â€” description, pubDate, guid, `source:markdown`, `source:inReplyTo` pointing back up at the parent. When a reply has replies of its own, its item carries its own `source:comments`, so an entire conversation is traversable from the feeds alone, one level at a time, every level the same shape.
+
+Because a comments feed mixes authors, each of its items also carries RSS core's `<source>` element for attribution:
+
+```xml
+<source url="https://users.rss.network/dave/rss.xml">Dave Winer</source>
+```
+
+â€” the author's display name and the address of their home feed. The everyone feed, which mixes authors the same way, now carries `<source>` on its items too.
+
+The feeds rebuild automatically: adding, editing, or deleting a reply republishes the parent post's comments feed, and also the parent author's own feed, since the count on their post just changed. Live example, the first thread: [manton's feed](https://users.rss.network/manton/rss.xml) â†’ [the comments feed for post 204](https://users.rss.network/manton/comments/204.xml).
+
+Later the same day, two finishing touches. A backfill published comments feeds for all 74 existing conversations, so every feedUrl the feeds advertise now resolves â€” including the threads that predate the feature. And a subtle case is covered: when you reply to a reply, the middle post's comment count now updates in its parent's comments feed too, so a program walking the tree never hits a level that doesn't know about the one below it. (That one was found by writing a demo app against the feeds â€” the tree is now walkable all the way down, and we've done it.) `source:comments` is documented in the [source namespace](https://source.scripting.com/).
+
+#### 7/7/26; 1:55 PM by CC
+
+Server v0.5.19. Deleted posts are no longer served. Requesting a deleted post by its permalink now returns an error object with a plain-English message â€” *Can't view the post because it has been deleted.* â€” instead of the post's content. If you're building on the API, this is the shape all our errors take: an object with a `message` property.
+
+Server v0.5.20. Every feed the server generates now carries `<source:self>` â€” the feed's own address, so a feed that's been copied or re-served can always say where it canonically lives. It's part of the [source namespace](https://source.scripting.com/).
+
+Coming next: comments feeds. Any post with replies will point, from its item in the feed, to a small RSS feed containing those replies â€” and replies with replies point onward the same way, so a whole conversation will be traversable from the feeds alone. The design is settled; the code is next.
+
+#### 7/5/26 by CC
+
+In the RSS feeds the server generates, a reply's `<source:inReplyTo>` element now carries the parent post's actual permalink, for example `https://rss.chat/?id=163`. Follow the link and you're looking at the post being replied to. Before this, the element pointed at a `/parent` URL that was never implemented, so the link led nowhere. If you're building on the feeds, this means reply threads are now traversable from the feed alone. (Server v0.5.18.)
+
 #### 7/3/26; 9:04:53 AM by DW
 
 Switching to just maintaining the server, the client is managed in rss.chat repo.
@@ -15,6 +80,8 @@ nodeEditorSuite.utilities.buildRssNetwork
 How to save a copy for Claude to read.
 
 file.writewholefile (user.prefs.claudeFolder + "rssNetwork:misc:buildRssNetwork.opml", op.outlinetoxml (@config.nodeEditor.projects.rssNetwork.scripts))
+
+
 
 #### 7/1/26; 10:19:38 AM by DW
 
@@ -83,16 +150,6 @@ smoothing out connection between feedland and rssnetwork
 suppose i have a feedurl, how do i determine if it's one of our feeds, i only want to see log messages if it's one of ours
 
 all log messages that stay must have timestamp. 
-
-
-
-
-
-
-
-
-
-
 
 #### 5/10/26; 12:51:59 PM by Claude
 
@@ -200,7 +257,7 @@ Conforms to the spec.
 
 #### 4/14/26; v0.4.11 by DW + Claude
 
-- Full nesting indentation throughout HTML •À¸•À¸•À¸ every level indented so it imports correctly into outliner
+- Full nesting indentation throughout HTML â€” every level indented so it imports correctly into outliner
 
 #### 4/14/26; v0.4.10 by DW + Claude
 
@@ -212,7 +269,7 @@ Conforms to the spec.
 
 #### 4/14/26; v0.4.8 by DW + Claude
 
-- Bootstrap navbar added with Menu •À¸•À¸•À¸ Sign in / Sign out
+- Bootstrap navbar added with Menu â€” Sign in / Sign out
 
 - `rssNetworkMemory` localStorage object stores email, code, screenname
 
@@ -262,9 +319,9 @@ Conforms to the spec.
 
 #### 4/14/26; v0.4.1 by Claude
 
-- Used `__dirname` to resolve config and data paths •À¸•À¸•À¸ wrong approach, reverted
+- Used `__dirname` to resolve config and data paths â€” wrong approach, reverted
 
-- Moved `pathServerHomePageSource` into code •À¸•À¸•À¸ wrong approach, reverted
+- Moved `pathServerHomePageSource` into code â€” wrong approach, reverted
 
 #### 4/14/26; v0.4.0 by DW + Claude
 
@@ -277,4 +334,3 @@ Conforms to the spec.
 - Email identity via daveappserver
 
 - `emailtemplate.html` added
-
