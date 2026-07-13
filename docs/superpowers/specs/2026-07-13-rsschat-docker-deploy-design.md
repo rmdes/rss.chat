@@ -226,3 +226,88 @@ Everything maps: MySQL addon, sendmail addon, localstorage for `/feeds`,
 one app container; Caddy's routing moves into Cloudron's nginx config. The
 daves3 shim and vendored client are identical in that world. Deferred until
 the compose deployment has proven itself on a real instance.
+
+---
+
+## Implementation addendum (2026-07-13) — what actually shipped
+
+The overlay was built and verified end to end on a live stack (MySQL 8.0.46,
+the full signup → post → reply → like → edit → delete flow, threadwalker
+walking our own feeds, zero requests to scripting.com or amazonaws.com). The
+design above held; these are the points where reality added to or corrected
+it.
+
+### Mandatory config additions
+
+- **`database.flUseMySql2: true`** — not optional. MySQL 8's default auth
+  plugin (`caching_sha2_password`) is unsupported by davesql's legacy `mysql`
+  driver, so the app cannot connect at all without this flag, which selects
+  the modern, bundled `mysql2` driver (3.22.6). Every DB call errored
+  `ER_NOT_SUPPORTED_AUTH_MODE` until it was set. This is the anti-legacy
+  choice (Dave's config defaults the flag to `false`); the stack is on the
+  current MySQL 8 line, not on anything legacy.
+
+### Schema deviation (documented, reversible)
+
+- **`prefs json not null default (json_object())`** — one column constraint
+  stronger than upstream's `install.md` (which allows NULL). This is a
+  workaround for an upstream server bug, not a fork of behavior: it is
+  compatibility-preserving (upstream never inserts `prefs` explicitly —
+  `rssnetwork.js:236` writes only screenname/email/secret, so the column
+  always took its default; `{}` behaves identically to a user who saved
+  empty prefs, a normal state the app already handles) and reversible (drop
+  it once the upstream read is guarded). A migration for existing installs
+  ships at `deploy/db/migrations/2026-07-13-prefs-not-null.sql` (backfills
+  NULL rows before tightening the constraint). See upstream bug #1 below.
+
+### Security addition (not in the original design)
+
+- **`/mail` requires HTTP basic auth.** MailPit's UI and API expose every
+  user's sign-in magic link; unauthenticated (the feedland-docker pattern
+  this was copied from) that is account takeover on any public instance.
+  Caddy now gates `/mail*` with `basic_auth`; `scripts/generate-env.sh`
+  generates `MAILPIT_USER`/`MAILPIT_PASSWORD` and the bcrypt
+  `MAILPIT_PASSWORD_HASH` Caddy consumes; compose fails closed
+  (`${MAILPIT_PASSWORD_HASH:?...}`) if the hash is unset. Gotcha: Docker
+  Compose re-interpolates `$name` inside `.env` values, so the bcrypt hash
+  must be `$$`-escaped (generate-env.sh does this; a hand-added hash must
+  too). The same fix was applied to the user's feedland-docker repo.
+
+### Other corrections to the design
+
+- **Memory limits use `mem_limit:`**, not `deploy.resources.limits`, which
+  plain `docker compose up` silently ignores (it is Swarm/`--compatibility`
+  only). The original design copied the inert block from feedland-docker;
+  the running stack now enforces 512M/1G (verified via `docker inspect`).
+- **A root `.dockerignore`** mirrors `deploy/Dockerfile.dockerignore`, whose
+  per-Dockerfile naming is BuildKit-only and a no-op on the legacy builder.
+- **Vendor count: 84 pinned assets** (not ~20 — FontAwesome expands to 16
+  css+webfont files, Google fonts to 50 woff2). The FontAwesome webfont
+  discovery in `pin-vendors.sh` had to handle quoted `url("../webfonts/…")`
+  in the live `all.css`, which the original design's regex missed.
+
+### Upstream bugs found (for the scripting/rss.chat issue)
+
+All three surfaced because we drove the server outside the browser's happy
+path, which is exactly what a Docker deployment and API clients do:
+
+1. **NULL-prefs crash (server-fatal).** `buildFeedForUser`
+   (`rssnetwork.js:638`) reads `userRec.prefs.myFeedTitle` unguarded. Any
+   user created via the API who posts before saving prefs sends `prefs`
+   NULL → `TypeError` → the Node process exits (a one-request remote crash).
+   The browser client never hits it because it saves prefs at sign-in.
+   Suggested upstream fix: guard the read. Our schema default is the
+   deployment-side workaround until then.
+2. **Dead `theWsServer.listen()` call.** `daveappserver` appserver.js:431
+   calls `.listen()` on a `ws` server that is already listening from its
+   constructor; the method does not exist and throws on every boot, logged
+   as `webSocketStartup: err.message == theWsServer.listen is not a
+   function`. Cosmetic — websockets work (verified `wss://` through Caddy) —
+   but it is dead code that should be deleted.
+3. **Hardcoded `rss.network` strings.** `rssnetwork.js:1,632,634` hardcode
+   the old product name into the feed generator and default feed
+   title/description, so a self-hosted instance's feeds introduce themselves
+   as "rss.network" regardless of `config.myDomain`/`productNameForDisplay`.
+   Overridable per-user via Settings, but the defaults should derive from
+   config. (Low-priority companion note: the install docs should mention
+   `flUseMySql2: true` for MySQL 8.)

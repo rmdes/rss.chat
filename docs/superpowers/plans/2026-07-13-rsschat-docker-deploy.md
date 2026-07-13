@@ -1226,3 +1226,44 @@ git push origin main
 - **Spec coverage:** shim→T1; config contract→T2; vendor+pins+fonts+images→T3; patches incl. overrides/hitCounter→T4; image+entrypoint+static sync→T5; compose/Caddy/schema/networks/healthchecks→T6; ops scripts→T7; verification plan items 1–7→T8, item 8 (backup/restore)→T7+T9 README; upstream-untouched guarantee asserted in T4's test and T9's final check. Two spec deviations (short S3 paths in config instead of prefix-stripping shim; loveRss.png left as-is in server-generated XML) are recorded in Global Constraints.
 - **Placeholder scan:** every file's full content is present except README prose (outlined section-by-section with its commands defined in earlier tasks — deliberate, not a gap).
 - **Type consistency:** `newObject` signature identical in T1 shim/test and T5 smoke test; env var names identical across T2, T5, T6, T7, T8; lock-line format identical between vendor.sh, test fixture, and pin-vendors.sh; `/static/vendor/...` and `/static/client/...` paths identical between T3 dest paths, T4 rewrites, T5 Dockerfile COPYs, and T6 Caddy routes.
+
+---
+
+## Post-execution addendum (2026-07-13) — corrections made during implementation
+
+All nine tasks executed and were reviewed clean; the stack runs and the e2e
+passes. Where the code as written in this plan was wrong or incomplete, the
+implementers corrected it — recorded here so this document is not a trap for
+the next reader. The shipped code is authoritative; where it differs from a
+task's code block above, the difference is one of these:
+
+- **T2 (make-config):** the whitelist gate must split/trim/filter *before*
+  testing for emptiness, else `WHITELIST=" , , "` yields a present empty
+  array (deny-all) instead of an absent key (open signup). Also added
+  `database.flUseMySql2: true` — **mandatory**, or MySQL 8 auth fails
+  (`ER_NOT_SUPPORTED_AUTH_MODE`) and the app never connects.
+- **T3 (vendor):** the FontAwesome webfont-discovery regex in
+  `pin-vendors.sh` had to match quoted `url("../webfonts/…")` in the live
+  `all.css`; the plan's unquoted regex zero-matched and aborted under
+  `pipefail`. Real pin count is 84 assets, not ~20.
+- **T5 (image):** smoke-test invocations need `--entrypoint bash` (the image
+  sets ENTRYPOINT, so trailing args append rather than replace). Added a root
+  `.dockerignore` because the per-Dockerfile `Dockerfile.dockerignore` is
+  BuildKit-only.
+- **T6 (compose):** `deploy.resources.limits` is inert under `docker compose
+  up`; replaced with `mem_limit:` (512M/1G, verified via `docker inspect`).
+  Also added the **schema `prefs` deviation** (`not null default
+  (json_object())`) + a migration under `deploy/db/migrations/`, to prevent
+  an upstream NULL-prefs server crash on a new user's first API post.
+- **T7 (ops scripts):** hardened per review — password via `MYSQL_PWD` env
+  (off the argv), literal `.env` key reader instead of `source .env`,
+  space-safe `mapfile` retention, `.partial`→`mv` atomic writes.
+- **T8 (e2e) + security:** `/mail` was unauthenticated (magic-link exposure →
+  account takeover); added Caddy `basic_auth` + generated bcrypt creds,
+  with the bcrypt hash `$$`-escaped for Compose interpolation. The e2e drops
+  its `saveprefs` step so it posts with default prefs, regression-testing the
+  schema fix. Same `/mail` fix applied to the feedland-docker repo.
+
+Three upstream bugs found (NULL-prefs crash, dead `theWsServer.listen()`,
+hardcoded `rss.network` feed strings) are detailed in the design doc's
+implementation addendum and go to the scripting/rss.chat issue.
