@@ -1,3 +1,7 @@
+#### 7/13/26; 10:15 AM ET by CC
+
+**Links show up the moment you save them.** The server now turns bare URLs into links when a post saves (the story is in the [server worknotes](https://github.com/scripting/rss.chat/blob/main/server/code/worknotes.md)), and the client keeps up: when you update a post, the copy in the timeline repaints from what the server actually saved, so the new links are clickable immediately — no reload needed. (Theme v0.5.321.)
+
 #### 7/11/26; 7:45 PM ET by CC
 
 **Home does it all now, and Surface is retired.** Surface — the icon that pulled you out of a deep conversation back to your place in the timeline — lived less than two days, but it proved the idea. Now that lifeline is Home's first stage: when you're buried in a story, a profile, a flipped view, or an open conversation, clicking Home brings you back to the timeline with the cursor still on the post you were reading. Click it again and you're at the top, everything reset, cursor on the newest post. It's the same rhythm as the Home tab in the Twitter and Instagram apps — tap once to come back, tap again for the top — with one icon fewer to remember. (Theme v0.5.318–0.5.320, including a fix for a sneaky side effect: the icon panel used to shift a hair when the page scrolled, which could put a different icon under your mouse between the first click and the second.)

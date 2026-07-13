@@ -1,7 +1,7 @@
 function chatUserInterface (userOptions) { //5/2/26 by Claude + DW -- classic theme (3-col), renamed from twitter 7/2/26
 			console.log ("chatUserInterface (classic)");
 
-			const themesVersion = "0.5.320"; //bump on every theme edit -- the second Home click puts the cursor on the topmost post, 7/11/26 by CC
+			const themesVersion = "0.5.321"; //bump on every theme edit -- after an update saves, the timeline repaints from what the server saved, so auto-linked URLs show without a reload, 7/13/26 by CC
 
 			var options = {
 				whereToAppend: undefined,
@@ -819,7 +819,12 @@ function chatUserInterface (userOptions) { //5/2/26 by Claude + DW -- classic th
 					else {
 						speakerBeep (); //5/21/26 by Claude
 						editTargetItem.title = postRec.title;
-						editTargetItem.description = htmlText;
+						if ((data !== undefined) && (data.description !== undefined)) { //7/13/26 by CC -- #175: the server linkifies bare URLs on save, so the repaint uses what it actually saved, not the editor's local copy
+							editTargetItem.description = data.description;
+							}
+						else {
+							editTargetItem.description = htmlText;
+							}
 						editTargetItem.markdowntext = markdownText;
 						updateDisplayedItem (editTargetItem); //6/18/26 by Claude -- refresh the post in the timeline now, no socket round-trip
 						showModalWhen (new Date ());

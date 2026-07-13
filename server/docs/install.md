@@ -1,25 +1,24 @@
-# How to install a rssNetwork server
+# How to install an RSS.chat server
 
-Instructions for a new host-runner.
+## How to set up a server
 
-## An AI can do this install
-
-These instructions work for people, and they work for AIs. If you use Claude Code or a similar agent, give it shell access on the machine that will run the server, point it at this document, and tell it to do the install. It can set up Node and MySQL, create the database from the schema below, fill in config.json, and start the server -- checking with you only on the questions that are genuinely yours to answer: your domain name, your database name, your AWS credentials.
-
-The rest of this document reads the same either way. Follow it yourself, or read along while your AI does.
-
-## Edit config.json
-
-A `config.json` file in the project root holds the settings you'll want to customize for your installation. The repo includes an example with the common knobs (port, database connection, S3 credentials, FeedLand server URLs, base feed URL).
+1. [Download the repo](https://github.com/scripting/rss.chat/archive/refs/heads/main.zip) and unzip it.
+2. Throw away everything but the *code* sub-folder of the server folder.
+3. Inside the code folder, these are the files you need: config.json, emailtemplate.html, package.json, rssnetwork.js. You can remove the rest.
+4. Put the code folder wherever you want the server to run, on the machine that will run it.
+5. Open config.json in a text editor and replace the example values with your own. Every setting is explained in [config.md](config.md).
+6. Create your database -- paste the SQL from the next section at a `mysql>` prompt.
+7. In the code folder, run `npm install`.
+8. Start the server: `node rssnetwork.js`.
 
 ## Create your database
 
-The server uses MySQL. Paste the following at a `mysql>` prompt. Change `myRssNetwork` to whatever name you want, and update `config.json` to match.
+The server uses MySQL. Paste the following at a `mysql>` prompt. Change `myRssChat` to whatever name you want, and update `config.json` to match.
 
 ```sql
-create database myRssNetwork character set utf8mb4 collate utf8mb4_unicode_ci;
+create database myRssChat character set utf8mb4 collate utf8mb4_unicode_ci;
 
-use myRssNetwork;
+use myRssChat;
 
 create table users (
 	screenname varchar (255) not null,
@@ -104,3 +103,16 @@ To add the per-user activity counters (`ctHits`, `ctHitsToday`, `whenLastHit`) t
 ```sql
 alter table users add column ctHits int not null default 0, add column ctHitsToday int not null default 0, add column whenLastHit datetime;
 ```
+
+## An AI can do this install
+
+These instructions work for people, and they work for AIs. If you use Claude Code or a similar agent, give it shell access on the machine that will run the server, point it at this document, and tell it to do the install. It can set up Node and MySQL, create the database from the schema above, fill in config.json, and start the server -- checking with you only on the questions that are genuinely yours to answer: your domain name, your database name, your AWS credentials.
+
+The instructions above read the same either way. Follow them yourself, or read along while your AI does.
+
+Written by Claude Code.
+
+&nbsp;
+
+&nbsp;
+
