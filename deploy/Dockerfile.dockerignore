@@ -1,0 +1,5 @@
+# deploy/Dockerfile.dockerignore -- BuildKit picks this up for deploy/Dockerfile
+.git
+docs
+examples
+deploy/backups
