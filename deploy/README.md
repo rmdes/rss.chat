@@ -144,11 +144,16 @@ already have the current schema via `db/init/01-schema.sql`.
 ## Testing
 
 ```bash
-node --test deploy/                        # daves3 shim + config generator unit tests
+node --test deploy/daves3-shim/test.js deploy/test-make-config.js   # unit tests
 bash deploy/test-vendor.sh                  # vendor.lock hashes match fetched content
 bash deploy/patches/test-patch-client.sh    # patch-client.sh rewrites cleanly, leaves no external URLs
 bash deploy/scripts/e2e-test.sh             # full posting flow against a running stack
 ```
+
+(Node's test runner will also discover both files with no path argument at all if
+you `cd deploy` first and run bare `node --test`; a bare directory argument such
+as `node --test deploy/` does not reliably recurse on every Node version, so the
+explicit file list above is the more portable form.)
 
 `e2e-test.sh` runs against `https://localhost` and creates a throwaway user
 on every run (via the real magic-link flow, pulled from MailPit's API), so
