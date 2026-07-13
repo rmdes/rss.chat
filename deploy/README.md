@@ -1,9 +1,14 @@
 # rss.chat Docker deployment
 
 Operator documentation for the `deploy/` overlay: a self-contained rss.chat
-instance you can run on any VPS with `docker compose up -d`. No Amazon S3,
-no Amazon SES, no scripting.com CDN calls at runtime -- everything the
-client and server need is vendored, patched, or replaced at build time.
+instance you can run on any VPS with `make install`. No Amazon S3, no Amazon
+SES, no scripting.com CDN calls at runtime -- everything the client and
+server need is vendored, patched, or replaced at build time.
+
+Everything in this document is driven by `make`, run from the repo root. The
+`Makefile` is a thin wrapper over `docker compose` and the
+`deploy/scripts/*.sh` scripts; it does nothing you couldn't do by hand, but
+it is the supported, documented interface. `make help` lists every target.
 
 This overlay never edits a file under `client/` or `server/`; it only adds
 files under `deploy/` (plus two convenience files at the repo root, `Makefile`
@@ -12,9 +17,28 @@ only theoretical exception being if upstream itself later adds a root
 `Makefile` or `.dockerignore`.
 Background and design rationale: `docs/superpowers/specs/2026-07-13-rsschat-docker-deploy-design.md`.
 
+## Prerequisites
+
+- **Docker Engine with the Compose v2 plugin (required).** Everything runs in
+  containers; there is nothing to install on the host beyond Docker itself.
+  `docker compose version` must report v2.10 or newer (the `up --wait` flag
+  the Makefile relies on landed in 2.10). On a VPS, Docker's convenience
+  script (`curl -fsSL https://get.docker.com | sh`) installs both the engine
+  and the Compose plugin.
+- **`make`** -- ships with the `build-essential` package on Debian/Ubuntu
+  (`apt install make`), preinstalled on most systems.
+- **`git`**, to clone the repo and pull updates.
+- Ports **80 and 443** free on the host (Caddy binds them for HTTP/HTTPS).
+
+No Node, MySQL, or anything else is needed on the host to **run** the
+instance -- they run in containers. The two verification targets `make test`
+and `make e2e` are the one exception: they execute on the host and need Node
+installed (they run the unit tests and drive the API directly). Nothing about
+operating a deployed instance requires them.
+
 ## Quickstart
 
-From the repo root, the `Makefile` drives everything:
+From the repo root:
 
 ```bash
 make install                     # creates .env, builds, starts, waits until healthy
@@ -22,17 +46,8 @@ $EDITOR deploy/.env              # set RSSCHAT_DOMAIN (and SMTP_* for real mail)
 make up                          # apply the change
 ```
 
-`make install` prints the site URL and the mail-catcher login when the stack
-is healthy. `make help` lists every target (see "Using make" below).
-
-Prefer raw compose? The equivalent longhand, run from `deploy/`:
-
-```bash
-cd deploy
-./scripts/generate-env.sh        # writes .env with random DB + MailPit passwords
-$EDITOR .env                     # set RSSCHAT_DOMAIN; set SMTP_* for real mail (see below)
-docker compose up -d --build
-```
+`make install` prints the site URL and the mail-catcher login once the stack
+is healthy. See "Using make" below for the full target list.
 
 Visit `https://RSSCHAT_DOMAIN`. Caddy provisions a TLS certificate
 automatically for a public domain; for `localhost` or a private IP it falls
@@ -138,13 +153,12 @@ of the network.
 ## Upgrading
 
 ```bash
-git pull                                       # upstream client/ and server/
-cd deploy
-docker compose build --no-cache rsschat
-docker compose up -d
+make update                                    # git pull, rebuild, restart (waits until healthy)
 ```
 
-If the build fails inside `patch-client` or on a vendor hash mismatch,
+`make update` pulls the latest `client/` and `server/` from upstream,
+rebuilds the image, and restarts. If the build fails inside `patch-client` or
+on a vendor hash mismatch,
 upstream changed something the overlay depends on (a CDN URL in
 `index.html`/`globals.js`, or the content behind a pinned URL). That's by
 design -- strict pinning means drift surfaces at build time, not in
@@ -156,20 +170,24 @@ production. Fix it deliberately:
   `FROM` string no longer appears in the file it targets, and adjust it to
   match the new upstream text.
 
-Then rebuild and re-run the test suite (below) before trusting the result.
+Then rebuild (`make build`) and re-run the test suite (`make test`, below)
+before trusting the result.
 
 ## Backup & restore
 
 ```bash
-./scripts/backup.sh                 # writes deploy/backups/db-<stamp>.sql.gz + feeds-<stamp>.tar.gz, keeps the newest 14 of each
+make backup                         # writes deploy/backups/db-<stamp>.sql.gz + feeds-<stamp>.tar.gz, keeps the newest 14 of each
 ```
 
-To restore onto a fresh stack:
+To restore onto a fresh stack, bring it up empty (the schema is applied
+automatically by `db/init`), then load the archives. The restore itself is a
+manual step -- there is no `make` target for it, since it is rare and
+destructive:
 
 ```bash
-docker compose up -d                                                  # empty stack, schema applied by db/init
-gunzip < backups/db-<stamp>.sql.gz | docker compose exec -T mysql mysql -u"$MYSQL_USER" "$MYSQL_DATABASE"
-docker compose exec -T rsschat tar -xzf - -C /feeds < backups/feeds-<stamp>.tar.gz
+make up                                                               # empty stack, schema applied by db/init
+gunzip < deploy/backups/db-<stamp>.sql.gz | docker compose --project-directory deploy -f deploy/docker-compose.yml exec -T mysql mysql -u"$MYSQL_USER" "$MYSQL_DATABASE"
+docker compose --project-directory deploy -f deploy/docker-compose.yml exec -T rsschat tar -xzf - -C /feeds < deploy/backups/feeds-<stamp>.tar.gz
 ```
 
 Restoring the feeds tarball is optional -- the app regenerates each feed
@@ -177,24 +195,21 @@ file the next time that user or item is written -- but restoring it gives
 you back everything immediately instead of waiting for activity.
 
 Schema changes to an existing install go through
-`./scripts/migrate.sh deploy/db/migrations/<file>.sql`; fresh installs
+`make migrate FILE=deploy/db/migrations/<file>.sql`; fresh installs
 already have the current schema via `db/init/01-schema.sql`.
 
 ## Testing
 
 ```bash
-node --test deploy/daves3-shim/test.js deploy/test-make-config.js   # unit tests
-bash deploy/test-vendor.sh                  # vendor.lock hashes match fetched content
-bash deploy/patches/test-patch-client.sh    # patch-client.sh rewrites cleanly, leaves no external URLs
-bash deploy/scripts/e2e-test.sh             # full posting flow against a running stack
+make test                           # unit + build tests (shim, config generator, vendor hashes, client patch)
+make e2e                            # full posting flow against a running stack
 ```
 
-(Node's test runner will also discover both files with no path argument at all if
-you `cd deploy` first and run bare `node --test`; a bare directory argument such
-as `node --test deploy/` does not reliably recurse on every Node version, so the
-explicit file list above is the more portable form.)
+`make test` needs Node on the host (it runs the unit tests directly, outside
+a container); everything else runs in Docker. `make e2e` needs a running
+stack (`make up` first).
 
-`e2e-test.sh` runs against `https://localhost` and creates a throwaway user
+`make e2e` runs against `https://localhost` and creates a throwaway user
 on every run (via the real magic-link flow, pulled from MailPit's API), so
 it requires `RSSCLOUD_ENABLED=false` and an empty `WHITELIST` in `.env` --
 open signup, and no outbound pings for a test account nobody subscribes to.
@@ -206,7 +221,7 @@ A few deliberate departures from upstream's defaults, and one upstream
 quirk worth knowing about:
 
 - **`prefs` defaults to `{}`, not `NULL`.** Upstream's `server/docs/install.md`
-  schema allows `prefs` to be NULL. `server/code/rssnetwork.js:638`
+  schema allows `prefs` to be NULL. `server/code/rssnetwork.js:655` (v0.5.25)
   (`buildFeedForUser`) reads `userRec.prefs.myFeedTitle` unguarded, so a
   user created through the API who posts before ever saving prefs crashed
   the server process. `db/init/01-schema.sql` defaults new rows to an empty

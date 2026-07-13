@@ -292,7 +292,8 @@ All three surfaced because we drove the server outside the browser's happy
 path, which is exactly what a Docker deployment and API clients do:
 
 1. **NULL-prefs crash (server-fatal).** `buildFeedForUser`
-   (`rssnetwork.js:638`) reads `userRec.prefs.myFeedTitle` unguarded. Any
+   (`rssnetwork.js:655` in v0.5.25) reads `userRec.prefs.myFeedTitle`
+   unguarded. Any
    user created via the API who posts before saving prefs sends `prefs`
    NULL → `TypeError` → the Node process exits (a one-request remote crash).
    The browser client never hits it because it saves prefs at sign-in.
