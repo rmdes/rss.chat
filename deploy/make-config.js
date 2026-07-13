@@ -61,7 +61,8 @@ const config = {
 		charset: "utf8mb4",
 		connectionLimit: 100,
 		database: optional ("MYSQL_DATABASE", "rsschat"),
-		debug: false
+		debug: false,
+		flUseMySql2: true
 		}
 	};
 

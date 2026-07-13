@@ -25,6 +25,7 @@ test ("produces valid json with domain-derived urls", function () {
 	assert.strictEqual (config.websocketPort, 1462);
 	assert.strictEqual (config.database.password, "s3cr3t");
 	assert.strictEqual (config.database.host, "mysql");
+	assert.strictEqual (config.database.flUseMySql2, true);
 	assert.strictEqual (config.smtpHost, "mailpit");
 	assert.strictEqual (config.whitelist, undefined); //empty WHITELIST means open signup
 	});
