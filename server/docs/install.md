@@ -2,12 +2,6 @@
 
 Instructions for a new host-runner.
 
-## An AI can do this install
-
-These instructions work for people, and they work for AIs. If you use Claude Code or a similar agent, give it shell access on the machine that will run the server, point it at this document, and tell it to do the install. It can set up Node and MySQL, create the database from the schema below, fill in config.json, and start the server -- checking with you only on the questions that are genuinely yours to answer: your domain name, your database name, your AWS credentials.
-
-The rest of this document reads the same either way. Follow it yourself, or read along while your AI does.
-
 ## Edit config.json
 
 A `config.json` file in the project root holds the settings you'll want to customize for your installation. The repo includes an example with the common knobs (port, database connection, S3 credentials, FeedLand server URLs, base feed URL).
@@ -104,3 +98,9 @@ To add the per-user activity counters (`ctHits`, `ctHitsToday`, `whenLastHit`) t
 ```sql
 alter table users add column ctHits int not null default 0, add column ctHitsToday int not null default 0, add column whenLastHit datetime;
 ```
+
+## An AI can do this install
+
+These instructions work for people, and they work for AIs. If you use Claude Code or a similar agent, give it shell access on the machine that will run the server, point it at this document, and tell it to do the install. It can set up Node and MySQL, create the database from the schema above, fill in config.json, and start the server -- checking with you only on the questions that are genuinely yours to answer: your domain name, your database name, your AWS credentials.
+
+The rest of this document reads the same either way. Follow it yourself, or read along while your AI does.

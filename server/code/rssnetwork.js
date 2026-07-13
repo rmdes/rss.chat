@@ -1,4 +1,4 @@
-var myVersion = "0.5.24", myProductName = "rss.network";
+var myVersion = "0.5.25", myProductName = "rss.network";
 
 const daveappserver = require ("daveappserver");
 const rss = require ("daverss");
@@ -10,6 +10,7 @@ const path = require ("path");
 const request = require ("request");     
 const davesql = require ("davesql"); 
 const turndown = require ("turndown"); //5/3/26 by DW
+const autolinker = require ("autolinker"); //7/13/26 by CC
 
 var config = {
 	productName: "rssNetwork",
@@ -104,6 +105,22 @@ var config = {
 		}
 	function getCommentsFeedUrl (screenname, idPost) { //7/8/26 by CC
 		return (config.rssFeedUrl + screenname + "/comments/" + idPost + ".xml");
+		}
+	function linkifyUrls (htmltext) { //7/13/26 by CC
+		if (htmltext === undefined) {
+			return (undefined);
+			}
+		else {
+			const theLinker = new autolinker ({
+				urls: true,
+				email: false,
+				phone: false,
+				stripPrefix: false,
+				stripTrailingSlash: false,
+				newWindow: false
+				});
+			return (theLinker.link (htmltext));
+			}
 		}
 //sql code
 	function convertString (theString) {
@@ -937,7 +954,7 @@ var config = {
 					else {
 						const theNewItem = {
 							title: postRec.title,
-							description: postRec.description,
+							description: linkifyUrls (postRec.description), //7/13/26 by CC -- #175
 							markdowntext: postRec.markdowntext, //6/3/26 by DW
 							inReplyTo: postRec.inReplyTo,
 							feedUrl: getFeedUrl (userRec.screenname),
@@ -1007,6 +1024,7 @@ var config = {
 										callback ({message});
 										}
 									else {
+										postRec.description = linkifyUrls (postRec.description); //7/13/26 by CC -- #175
 										updateItem (postRec, function (err, itemRec) {
 											if (err) {
 												callback (err);

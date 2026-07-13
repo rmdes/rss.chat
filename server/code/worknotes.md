@@ -1,3 +1,15 @@
+#### 7/13/26; 9:30 AM ET by CC
+
+**Server v0.5.25. Bare URLs become links, automatically, when a post saves.** Type or paste a web address into a post and it's clickable when it publishes — no more selecting the text and reaching for the link button. The idea came from a user, [Don Park](https://rss.chat/?id=248), the day before it shipped.
+
+The work happens on the server, in `newPost` and `updatePost`, so every client gets it for free. The post's text passes through the [Autolinker](https://www.npmjs.com/package/autolinker) package on its way to the database — it understands HTML, so it only touches plain text: a URL that's already part of a link, or sitting inside an image tag, is left alone, and the link text is exactly what the writer typed. The stored markdown is untouched — the source stays as written; only the rendered text gets the links.
+
+#### 7/12/26; 11:55 PM ET by CC
+
+**The API has a doc now.** [api.md](../docs/api.md), new in server/docs, documents the HTTP interface between the rss.chat client and its server — every read and write call, the no-passwords email flow, the item record field by field, and the websocket verbs. The client that ships with the product is just one user of this API; the doc is for whoever wants to build the next one.
+
+Also in server/docs: install.md's "An AI can do this install" section moved to the end of the doc — it's a good trick, but not the first thing a new host-runner needs to read.
+
 #### 7/12/26; 11:50 AM ET by CC
 
 **A deleted post can't crash its own comments feed anymore.** There was a sequence that could bring down a feed rebuild: someone replies to a post, the author deletes the post, then the reply gets edited. Rebuilding the comments feed found the parent gone — deleted posts are filtered out of every query — and crashed trying to read it. Now the build answers the way this server always answers: "Can't build the comments feed for post N because the post has been deleted."
