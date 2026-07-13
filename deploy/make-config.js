@@ -66,12 +66,13 @@ const config = {
 	};
 
 const whitelist = optional ("WHITELIST", "");
-if (whitelist.trim ().length > 0) {
-	config.whitelist = whitelist.split (",").map (function (s) {
-		return (s.trim ());
-		}).filter (function (s) {
-		return (s.length > 0);
-		});
+const whitelistArray = whitelist.split (",").map (function (s) {
+	return (s.trim ());
+	}).filter (function (s) {
+	return (s.length > 0);
+	});
+if (whitelistArray.length > 0) {
+	config.whitelist = whitelistArray;
 	}
 
 console.log (JSON.stringify (config, undefined, "\t"));

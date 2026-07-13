@@ -41,3 +41,7 @@ test ("missing required vars fail with a message", function () {
 	assert.strictEqual (result.status, 1);
 	assert.match (result.stderr, /MYSQL_PASSWORD/);
 	});
+test ("whitelist of only separators and spaces stays absent", function () {
+	const result = run (Object.assign ({WHITELIST: " , , "}, goodEnv));
+	assert.strictEqual (JSON.parse (result.stdout).whitelist, undefined);
+	});
