@@ -1,0 +1,5 @@
+# Mirrors deploy/Dockerfile.dockerignore for non-BuildKit builders
+.git
+docs
+examples
+deploy/backups
