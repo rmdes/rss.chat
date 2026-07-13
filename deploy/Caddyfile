@@ -1,6 +1,9 @@
 # deploy/Caddyfile
 {$RSSCHAT_DOMAIN} {
 	handle /mail* {
+		basic_auth {
+			{$MAILPIT_USER} {$MAILPIT_PASSWORD_HASH}
+		}
 		reverse_proxy mailpit:8025
 	}
 

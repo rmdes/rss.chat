@@ -71,6 +71,8 @@ services:
         condition: service_healthy
     environment:
       RSSCHAT_DOMAIN: ${RSSCHAT_DOMAIN:?Set RSSCHAT_DOMAIN in .env}
+      MAILPIT_USER: ${MAILPIT_USER:-mail}
+      MAILPIT_PASSWORD_HASH: ${MAILPIT_PASSWORD_HASH:?Set MAILPIT_PASSWORD_HASH in .env (see scripts/generate-env.sh)}
     ports:
       - "80:80"
       - "443:443"

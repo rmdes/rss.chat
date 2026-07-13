@@ -5,6 +5,15 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 BASE="https://localhost"
 C () { curl -sk "$@"; }
+
+envval () { # read KEY=VALUE literally from .env, no shell evaluation
+	grep -E "^$1=" .env | head -1 | cut -d= -f2-
+}
+MAILPIT_USER=$(envval MAILPIT_USER)
+MAILPIT_PASSWORD=$(envval MAILPIT_PASSWORD)
+[ -n "$MAILPIT_USER" ] && [ -n "$MAILPIT_PASSWORD" ] || { echo "E2E FAIL: MAILPIT_USER/MAILPIT_PASSWORD not set in .env" >&2; exit 1; }
+M () { curl -sk -u "$MAILPIT_USER:$MAILPIT_PASSWORD" "$@"; }
+
 EMAIL="e2e-$(date +%s)@example.com"
 NAME="e2e$(date +%s)"
 fail () { echo "E2E FAIL: $*" >&2; exit 1; }
@@ -15,9 +24,9 @@ C "$BASE/createnewuser?email=$EMAIL&name=$NAME&urlredirect=$BASE/" > /dev/null
 sleep 2
 
 echo "-- 2 magic link from mailpit"
-MSGID=$(C "$BASE/mail/api/v1/messages?limit=1" | jsonget ".messages[0].ID")
+MSGID=$(M "$BASE/mail/api/v1/messages?limit=1" | jsonget ".messages[0].ID")
 [ -n "$MSGID" ] || fail "no message in mailpit"
-LINK=$(C "$BASE/mail/api/v1/message/$MSGID" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const m=JSON.parse(s);const t=(m.Text||'')+' '+(m.HTML||'');const x=t.match(/https?:\/\/[^\s\"'<>]+/g)||[];console.log(x.find(u=>u.includes('confirm'))||'')})")
+LINK=$(M "$BASE/mail/api/v1/message/$MSGID" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const m=JSON.parse(s);const t=(m.Text||'')+' '+(m.HTML||'');const x=t.match(/https?:\/\/[^\s\"'<>]+/g)||[];console.log(x.find(u=>u.includes('confirm'))||'')})")
 [ -n "$LINK" ] || fail "no confirmation link in the email"
 
 echo "-- 3 confirm; capture credentials from the redirect"
@@ -27,9 +36,6 @@ CODE=$(node -e "console.log(new URL(process.argv[1]).searchParams.get('code')||'
 SCREEN=$(node -e "console.log(new URL(process.argv[1]).searchParams.get('screenname')||'')" "$REDIR")
 [ "$SCREEN" = "$NAME" ] || fail "screenname mismatch: got '$SCREEN'"
 AUTH="emailaddress=$EMAIL&emailcode=$CODE"
-#The browser client saves prefs right after signing in; a user without a prefs object
-#crashes buildFeedForUser (rssnetwork.js:638) on their first post. Mirror the client.
-C -G -X POST "$BASE/saveprefs?$AUTH" --data-urlencode 'jsontext={}' > /dev/null
 
 echo "-- 4 post"
 ID=$(C -G -X POST "$BASE/newpost?$AUTH" --data-urlencode 'jsontext={"description":"hello from the e2e test"}' | jsonget ".id")
