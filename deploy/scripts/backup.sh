@@ -2,12 +2,39 @@
 #deploy/scripts/backup.sh -- dump the database and tar the feeds volume; keep 14 of each
 set -euo pipefail
 cd "$(dirname "$0")/.."
-set -a; source .env; set +a
+
+envval () { # read KEY=VALUE literally from .env, no shell evaluation
+	grep -E "^$1=" .env | head -1 | cut -d= -f2-
+}
+MYSQL_PASSWORD=$(envval MYSQL_PASSWORD)
+MYSQL_USER=$(envval MYSQL_USER)
+MYSQL_DATABASE=$(envval MYSQL_DATABASE)
+[ -n "$MYSQL_PASSWORD" ] || { echo "backup: MYSQL_PASSWORD not set in .env" >&2; exit 1; }
+
 STAMP=$(date +%Y%m%d-%H%M%S)
 DEST="${1:-./backups}"
 mkdir -p "$DEST"
-docker compose exec -T mysql mysqldump -u"${MYSQL_USER:-rsschat}" -p"$MYSQL_PASSWORD" "${MYSQL_DATABASE:-rsschat}" | gzip > "$DEST/db-$STAMP.sql.gz"
-docker compose exec -T rsschat tar -czf - -C /feeds . > "$DEST/feeds-$STAMP.tar.gz"
-ls -t "$DEST"/db-*.sql.gz 2>/dev/null | tail -n +15 | xargs -r rm
-ls -t "$DEST"/feeds-*.tar.gz 2>/dev/null | tail -n +15 | xargs -r rm
-echo "backup: $DEST/db-$STAMP.sql.gz + feeds-$STAMP.tar.gz"
+rm -f "$DEST"/*.partial
+
+DB_FILE="$DEST/db-$STAMP.sql.gz"
+FEEDS_FILE="$DEST/feeds-$STAMP.tar.gz"
+
+# MYSQL_PWD still briefly shows up in this host's `docker compose exec` argv (ps), but no longer on the mysqldump process's own command line.
+docker compose exec -T -e MYSQL_PWD="$MYSQL_PASSWORD" mysql mysqldump -u"${MYSQL_USER:-rsschat}" "${MYSQL_DATABASE:-rsschat}" | gzip > "$DB_FILE.partial"
+mv "$DB_FILE.partial" "$DB_FILE"
+
+docker compose exec -T rsschat tar -czf - -C /feeds . > "$FEEDS_FILE.partial"
+mv "$FEEDS_FILE.partial" "$FEEDS_FILE"
+
+prune () { # keep the newest 14 files matching $1 glob
+	local files
+	mapfile -t files < <(ls -t "$DEST"/$1 2>/dev/null)
+	local i
+	for ((i = 14; i < ${#files[@]}; i++)); do
+		rm -- "${files[$i]}"
+	done
+}
+prune "db-*.sql.gz"
+prune "feeds-*.tar.gz"
+
+echo "backup: $DB_FILE + $FEEDS_FILE"
