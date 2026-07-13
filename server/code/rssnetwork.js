@@ -1,4 +1,4 @@
-var myVersion = "0.5.25", myProductName = "rss.network";
+var myVersion = "0.5.26", myProductName = "rss.network";
 
 const daveappserver = require ("daveappserver");
 const rss = require ("daverss");
@@ -122,6 +122,45 @@ var config = {
 			return (theLinker.link (htmltext));
 			}
 		}
+	function isEmailBlocked (emailaddress) { //7/13/26 by CC
+		if (emailaddress === undefined) {
+			return (false);
+			}
+		else {
+			try {
+				const jstruct = JSON.parse (fs.readFileSync ("config.json"));
+				if (jstruct.blockedUsersList === undefined) { //no blocklist
+					return (false);
+					}
+				else {
+					const emailLower = utils.stringLower (emailaddress);
+					var flBlocked = false;
+					jstruct.blockedUsersList.forEach (function (blockedEmail) {
+						if (utils.stringLower (blockedEmail) === emailLower) {
+							flBlocked = true;
+							}
+						});
+					return (flBlocked);
+					}
+				}
+			catch (err) {
+				console.log ("isEmailBlocked: err.message == " + err.message);
+				return (false);
+				}
+			}
+		}
+	function userIsBlocked (emailaddress, callback) {
+		if (isEmailBlocked (emailaddress)) {
+			const message = "Can't send the confirming email because the user is not authorized.";
+			callback ({message});
+			return (true); //consumed
+			}
+		else {
+			return (false); //not consumed
+			}
+		}
+	
+	
 //sql code
 	function convertString (theString) {
 		if ((theString === null) || (theString === undefined)) {
@@ -769,6 +808,9 @@ var config = {
 			else {
 				const relpath = userRec.screenname + "/" + config.rssFilename;
 				const s3path = config.rssS3Path + relpath;
+				
+				console.log ("updateFeedsOnS3: s3path == " + s3path + ", feedUrl == " + config.rssFeedUrl + relpath); //7/13/26 by DW
+				
 				s3.newObject (s3path, xmltext, "text/xml", "public-read", function (err, data) {
 					if (err) {
 						console.log ("updateFeedsOnS3: config.rssS3Path == " + config.rssS3Path + ", err.message == " + err.message);
@@ -861,7 +903,6 @@ var config = {
 			return (undefined);
 			}
 		}
-	
 	function getUserData (screenname, callback) {
 		var theData = { //6/13/26 by DW
 			feedUrlEveryone: config.rssFeedUrl + config.rssFilename, //6/5/26 by DW
@@ -901,7 +942,6 @@ var config = {
 				})
 			}
 		}
-	
 	function getUserFeed (screenname, callback) {
 		getUserInfoByScreenname (screenname, function (err, userRec) {
 			if (err) {
@@ -927,130 +967,141 @@ var config = {
 			});
 		}
 	function newPost (email, code, jsontext, callback) {
-		var postRec;
-		try {
-			postRec = JSON.parse (jsontext)
-			}
-		catch (err) {
-			const message = "Can't add the post because the postRec doesn't parse properly.";
+		if (isEmailBlocked (email)) { //7/13/26 by DW
+			const message = "Can't add the post because the user is not authorized.";
 			callback ({message});
-			return;
 			}
-		getUserInfoByEmail (email, function (err, userRec) {
-			if (err) {
-				callback (err);
+		else {
+			var postRec;
+			try {
+				postRec = JSON.parse (jsontext)
 				}
-			else {
-				if (userRec === undefined) {
-					const message = "Can't add the post because there is no user with email \"" + email + "\".";
-					console.log ("newPost: " + message);
-					callback ({message});
+			catch (err) {
+				const message = "Can't add the post because the postRec doesn't parse properly.";
+				callback ({message});
+				return;
+				}
+			getUserInfoByEmail (email, function (err, userRec) {
+				if (err) {
+					callback (err);
 					}
 				else {
-					if (userRec.emailSecret !== code) {
-						const message = "Can't add the post because the authorization code is not correct.";
+					if (userRec === undefined) {
+						const message = "Can't add the post because there is no user with email \"" + email + "\".";
+						console.log ("newPost: " + message);
 						callback ({message});
 						}
 					else {
-						const theNewItem = {
-							title: postRec.title,
-							description: linkifyUrls (postRec.description), //7/13/26 by CC -- #175
-							markdowntext: postRec.markdowntext, //6/3/26 by DW
-							inReplyTo: postRec.inReplyTo,
-							feedUrl: getFeedUrl (userRec.screenname),
-							pubDate: new Date (),
-							author: userRec.screenname, //5/4/26 by DW
-							};
-						addItem (theNewItem, function (err, itemRec) {
-							if (err) {
-								callback (err);
-								}
-							else {
-								updateFeedsOnS3 (userRec, function (err, data) {
-									if (err) {
-										callback (err);
-										}
-									else {
-										itemRec.guid = getPermalinkUrl (itemRec); //6/20/26 by DW
-										callback (undefined, itemRec);
-										}
-									});
-								updateReplyFeedsOnS3 (itemRec.inReplyTo, userRec.screenname); //7/8/26 by CC
-								}
-							});
-						}
-					}
-				}
-			});
-		}
-	function updatePost (email, code, jsontext, callback) { //5/21/26 by DW
-		var postRec;
-		try {
-			postRec = JSON.parse (jsontext)
-			}
-		catch (err) {
-			const message = "Can't update the post because the postRec doesn't parse properly.";
-			callback ({message});
-			return;
-			}
-		getUserInfoByEmail (email, function (err, userRec) {
-			if (err) {
-				callback (err);
-				}
-			else {
-				if (userRec === undefined) {
-					const message = "Can't update the post because there is no user with email \"" + email + "\".";
-					callback ({message});
-					}
-				else {
-					if (userRec.emailSecret !== code) {
-						const message = "Can't update the post because the authorization code is not correct.";
-						console.log ("updatePost: " + message); 
-						callback ({message});
-						}
-					else {
-						getItemById (userRec.screenname, postRec.id, function (err, existingItemRec) {
-							if (err) {
-								callback (err);
-								}
-							else {
-								if (existingItemRec === undefined) {
-									const message = "Can't update the post because there is no item with id " + postRec.id + ".";
-									callback ({message});
+						if (userRec.emailSecret !== code) {
+							const message = "Can't add the post because the authorization code is not correct.";
+							callback ({message});
+							}
+						else {
+							const theNewItem = {
+								title: postRec.title,
+								description: linkifyUrls (postRec.description), //7/13/26 by CC -- #175
+								markdowntext: postRec.markdowntext, //6/3/26 by DW
+								inReplyTo: postRec.inReplyTo,
+								feedUrl: getFeedUrl (userRec.screenname),
+								pubDate: new Date (),
+								author: userRec.screenname, //5/4/26 by DW
+								};
+							addItem (theNewItem, function (err, itemRec) {
+								if (err) {
+									callback (err);
 									}
 								else {
-									if (existingItemRec.author !== userRec.screenname) {
-										const message = "Can't update the post because it was written by a different user.";
+									updateFeedsOnS3 (userRec, function (err, data) {
+										if (err) {
+											callback (err);
+											}
+										else {
+											itemRec.guid = getPermalinkUrl (itemRec); //6/20/26 by DW
+											callback (undefined, itemRec);
+											}
+										});
+									updateReplyFeedsOnS3 (itemRec.inReplyTo, userRec.screenname); //7/8/26 by CC
+									}
+								});
+							}
+						}
+					}
+				});
+			}
+		}
+	function updatePost (email, code, jsontext, callback) { //5/21/26 by DW
+		if (isEmailBlocked (email)) { //7/13/26 by DW
+			const message = "Can't update the post because the user is not authorized.";
+			callback ({message});
+			}
+		else {
+			var postRec;
+			try {
+				postRec = JSON.parse (jsontext)
+				}
+			catch (err) {
+				const message = "Can't update the post because the postRec doesn't parse properly.";
+				callback ({message});
+				return;
+				}
+			getUserInfoByEmail (email, function (err, userRec) {
+				if (err) {
+					callback (err);
+					}
+				else {
+					if (userRec === undefined) {
+						const message = "Can't update the post because there is no user with email \"" + email + "\".";
+						callback ({message});
+						}
+					else {
+						if (userRec.emailSecret !== code) {
+							const message = "Can't update the post because the authorization code is not correct.";
+							console.log ("updatePost: " + message); 
+							callback ({message});
+							}
+						else {
+							getItemById (userRec.screenname, postRec.id, function (err, existingItemRec) {
+								if (err) {
+									callback (err);
+									}
+								else {
+									if (existingItemRec === undefined) {
+										const message = "Can't update the post because there is no item with id " + postRec.id + ".";
 										callback ({message});
 										}
 									else {
-										postRec.description = linkifyUrls (postRec.description); //7/13/26 by CC -- #175
-										updateItem (postRec, function (err, itemRec) {
-											if (err) {
-												callback (err);
-												}
-											else {
-												updateFeedsOnS3 (userRec, function (err, data) {
-													if (err) {
-														callback (err);
-														}
-													else {
-														callback (undefined, itemRec);
-														}
-													});
-												updateReplyFeedsOnS3 (existingItemRec.inReplyToNum, userRec.screenname);
-												}
-											});
+										if (existingItemRec.author !== userRec.screenname) {
+											const message = "Can't update the post because it was written by a different user.";
+											callback ({message});
+											}
+										else {
+											postRec.description = linkifyUrls (postRec.description); //7/13/26 by CC -- #175
+											updateItem (postRec, function (err, itemRec) {
+												if (err) {
+													callback (err);
+													}
+												else {
+													updateFeedsOnS3 (userRec, function (err, data) {
+														if (err) {
+															callback (err);
+															}
+														else {
+															callback (undefined, itemRec);
+															}
+														});
+													updateReplyFeedsOnS3 (existingItemRec.inReplyToNum, userRec.screenname);
+													}
+												});
+											}
 										}
 									}
-								}
-							});
+								});
+							}
 						}
 					}
-				}
-			});
+				});
+			}
 		}
-	
 	function validateUser (email, code, what, callback) { //6/12/26 by DW
 		getUserInfoByEmail (email, function (err, userRec) {
 			if (err) {
@@ -1140,7 +1191,6 @@ var config = {
 				}
 			});
 		}
-	
 	function bumpUserHits (screenname, callback) { //7/1/26 by CC
 		const sqltext = "update users set ctHits = ctHits + 1, ctHitsToday = case when date (whenLastHit) = date (now ()) then ctHitsToday + 1 else 1 end, whenLastHit = now () where screenname = " + davesql.encode (screenname) + ";";
 		davesql.runSqltext (sqltext, function (err) {
@@ -1188,28 +1238,33 @@ var config = {
 			});
 		}
 	function checkWhitelist (emailaddress, callback) { //6/9/26 by DW
-		fs.readFile ("config.json", function (err, jsontext) {
-			var flWhitelisted = false; 
-			if (err) {
-				console.log ("checkWhitelist: err.message == " + err.message);
-				}
-			else {
-				var jstruct;
-				try {
-					jstruct = JSON.parse (jsontext);
-					if (jstruct.whitelist === undefined) { //no whitelist
-						flWhitelisted = true;
-						}
-					else {
-						flWhitelisted = jstruct.whitelist.includes (emailaddress);
-						}
-					}
-				catch (err) {
+		if (isEmailBlocked (emailaddress)) { //7/13/26 by CC
+			callback (undefined, {flWhitelisted: false});
+			}
+		else {
+			fs.readFile ("config.json", function (err, jsontext) {
+				var flWhitelisted = false; 
+				if (err) {
 					console.log ("checkWhitelist: err.message == " + err.message);
 					}
-				}
-			callback (undefined, {flWhitelisted});
-			});
+				else {
+					var jstruct;
+					try {
+						jstruct = JSON.parse (jsontext);
+						if (jstruct.whitelist === undefined) { //no whitelist
+							flWhitelisted = true;
+							}
+						else {
+							flWhitelisted = jstruct.whitelist.includes (emailaddress);
+							}
+						}
+					catch (err) {
+						console.log ("checkWhitelist: err.message == " + err.message);
+						}
+					}
+				callback (undefined, {flWhitelisted});
+				});
+			}
 		}
 	function getLikersList (id, callback) { //6/25/26 by CC 
 		const sqltext = "select screenname from likes where itemId = " + davesql.encode (id) + " order by whenCreated;";
@@ -1280,7 +1335,6 @@ var config = {
 				}
 			});
 		}
-	
 //like -- 6/24/26 by DW
 	function addToLikesTable (screenname, itemId, callback) {
 		const likesRec = {
@@ -1580,6 +1634,8 @@ function handleHttpRequest (theRequest) {
 		case "/getiteminfo": //7/9/26 by CC
 			getItemInfo (params.screenname, params.guid, params.id, params.format, httpReturn);
 			return (true);
+		case "/sendconfirmingemail": case "/createnewuser": //7/13/26 by CC
+			return (userIsBlocked (params.email, httpReturn)); //if block, we prevent daveappserver from doing anything
 		}
 	
 	

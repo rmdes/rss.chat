@@ -1,6 +1,6 @@
 # About config.json
 
-`config.json` holds the values you provide to run an rss.chat server. It lives in the app's folder (e.g. `pagepark/domains/rss.chat/config.json`) and is read once at startup. daveappserver reads the same file and fills in operational defaults for anything you leave out, so you only need the fields below.
+`config.json` holds the values you provide to run an rss.chat server. It lives in the app's folder (e.g. `pagepark/domains/myserver.chat/config.json`) and is read once at startup. daveappserver reads the same file and fills in operational defaults for anything you leave out, so you only need the fields below.
 
 The required fields come first. The optional ones (websockets, access control, the human-readable note) follow.
 
@@ -16,7 +16,7 @@ The internal name of the product. Used in logging and as the app's identity, not
 
 The name users see in the UI (the title at the top of the page, for example).
 
-`"productNameForDisplay": "rss.chat"`
+`"productNameForDisplay": "myserver.chat"`
 
 ## URLs
 
@@ -24,25 +24,25 @@ The name users see in the UI (the title at the top of the page, for example).
 
 The domain the server runs under, no scheme. In production it's your real domain; on a dev box it's `localhost` plus the port.
 
-`"myDomain": "rss.chat"`
+`"myDomain": "myserver.chat"`
 
 ### urlServerForClient
 
 The base URL the browser uses to reach the server. Item permalinks (guids) are derived from this value, so changing it changes the guids of future posts.
 
-`"urlServerForClient": "https://rss.chat/"`
+`"urlServerForClient": "https://myserver.chat/"`
 
 ### urlServerForEmail
 
 The base URL used to build the magic links in confirmation emails. Normally the same as `urlServerForClient`.
 
-`"urlServerForEmail": "https://rss.chat/"`
+`"urlServerForEmail": "https://myserver.chat/"`
 
 ### urlServerHomePageSource
 
 The URL the server pulls the client's home page HTML from. Every installation currently pulls from the same place on scripting.com.
 
-`"urlServerHomePageSource": "http://scripting.com/code/rsschat/index.html"`
+`"urlServerHomePageSource": "https://code.scripting.com/rsschat/index.html"`
 
 ## Database
 
@@ -58,7 +58,7 @@ The MySQL connection. `database` is the schema name you created at install time 
 	"password": "your-db-password",
 	"charset": "utf8mb4",
 	"connectionLimit": 100,
-	"database": "rsschat",
+	"database": "myRssChat",
 	"debug": false
 	}
 ```
@@ -73,19 +73,19 @@ Sign-in is a magic link: the user enters an email, the server mails a confirmati
 
 The From address on confirmation emails.
 
-`"mailSender": "dave.winer@gmail.com"`
+`"mailSender": "admin@myserver.chat"`
 
 ### confirmEmailSubject
 
 The subject line of the confirmation email.
 
-`"confirmEmailSubject": "rss.chat confirmation"`
+`"confirmEmailSubject": "myserver.chat confirmation"`
 
 ### operationToConfirm
 
 The phrase used in the body of the confirmation email to describe what the user is confirming.
 
-`"operationToConfirm": "sign in to rss.chat"`
+`"operationToConfirm": "sign in to myserver.chat"`
 
 ## Storage paths
 
@@ -127,17 +127,17 @@ Whether the client connects over secure websockets (`wss://`). True in productio
 
 The websocket URL the client opens. Empty string when websockets are off.
 
-`"urlWebsocketServerForClient": "wss://rss.chat/"`
+`"urlWebsocketServerForClient": "wss://myserver.chat/"`
 
 ## Access control
 
 ### whitelist
 
-An array of email addresses allowed to sign in. Use this during an invite-only phase to limit who can create an account.
+Optional. An array of email addresses allowed to sign in. Leave it out and anyone can join -- that's the default. Use it during an invite-only phase to limit who can create an account.
 
 ```json
 "whitelist": [
-	"dave.winer@gmail.com",
+	"you@example.com",
 	"someone@example.com"
 	]
 ```
@@ -148,8 +148,8 @@ An array of email addresses allowed to sign in. Use this during an invite-only p
 
 A free-text comment for whoever reads the file. Not used by the app. The convention is to say which install this is and where it runs.
 
-`"note": "This is the configuration file for rss.chat running on africa."`
+`"note": "This is the configuration file for the myserver.chat server."`
 
 ## Example file
 
-A ready-to-edit example config, with invented values and a placeholder password, is the [config.json](../config.json) at the top level of this repo. Copy it to your app folder as `config.json` and replace the values with your own.
+A ready-to-edit example config, with invented values and a placeholder password, is the [config.json](../code/config.json) in the server's code folder. Copy it to your app folder as `config.json` and replace the values with your own.
