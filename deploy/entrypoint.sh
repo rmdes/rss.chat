@@ -12,9 +12,13 @@ echo "entrypoint: config.json generated for ${RSSCHAT_DOMAIN}"
 
 mkdir -p data
 mkdir -p "${FEEDS_ROOT:-/feeds}"
+mkdir -p /static
 if [ -d /static ]; then #shared volume; caddy serves it read-only
 	cp -a /app/static-src/. /static/
 	echo "entrypoint: static tree synced to /static"
 fi
 
-exec node rssnetwork.js
+# drop root: chown the volume mountpoints the node process writes to, then
+# exec node as the unprivileged 'node' user shipped in the base image.
+chown -R node:node /app/data "${FEEDS_ROOT:-/feeds}" /static
+exec gosu node node rssnetwork.js

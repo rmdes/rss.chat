@@ -7,6 +7,7 @@ RUN bash /build/vendor.sh /build/vendor.lock /static/vendor
 
 # Stage 2: the app
 FROM node:20-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 COPY server/code/package.json ./
