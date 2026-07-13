@@ -1,0 +1,30 @@
+# deploy/Caddyfile
+{$RSSCHAT_DOMAIN} {
+	handle /mail* {
+		reverse_proxy mailpit:8025
+	}
+
+	handle_path /feeds/* {
+		root * /feeds
+		@opml path *.opml
+		header @opml Content-Type "text/xml; charset=utf-8"
+		file_server
+	}
+
+	handle_path /static/* {
+		root * /static
+		file_server
+	}
+
+	@websockets {
+		header Connection *Upgrade*
+		header Upgrade websocket
+	}
+	handle @websockets {
+		reverse_proxy rsschat:1462
+	}
+
+	handle {
+		reverse_proxy rsschat:1452
+	}
+}

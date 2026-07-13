@@ -1,0 +1,3 @@
+# deploy/.gitignore
+.env
+backups/

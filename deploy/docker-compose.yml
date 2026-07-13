@@ -1,0 +1,113 @@
+# deploy/docker-compose.yml -- run from the deploy/ directory
+services:
+  rsschat:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: rsschat
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      RSSCHAT_DOMAIN: ${RSSCHAT_DOMAIN:?Set RSSCHAT_DOMAIN in .env}
+      PRODUCT_NAME: ${PRODUCT_NAME:-rss.chat}
+      WHITELIST: ${WHITELIST:-}
+      RSSCLOUD_ENABLED: ${RSSCLOUD_ENABLED:-true}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-rsschat}
+      MYSQL_USER: ${MYSQL_USER:-rsschat}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_SENDER: ${MAIL_SENDER:-rsschat@localhost}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - feeds-data:/feeds
+      - static-data:/static
+      - rsschat-data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:1452/', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    restart: unless-stopped
+    networks:
+      - frontend
+      - backend
+
+  mysql:
+    image: mysql:8.0
+    container_name: rsschat-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-rsschat}
+      MYSQL_USER: ${MYSQL_USER:-rsschat}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - ./db/conf/my.cnf:/etc/mysql/conf.d/rsschat.cnf:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    restart: unless-stopped
+    networks:
+      - backend
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: rsschat-caddy
+    depends_on:
+      rsschat:
+        condition: service_healthy
+    environment:
+      RSSCHAT_DOMAIN: ${RSSCHAT_DOMAIN:?Set RSSCHAT_DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - feeds-data:/feeds:ro
+      - static-data:/static:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+    networks:
+      - frontend
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: rsschat-mailpit
+    environment:
+      MP_WEBROOT: /mail
+    restart: unless-stopped
+    networks:
+      - frontend
+      - backend
+
+volumes:
+  mysql-data:
+  feeds-data:
+  static-data:
+  rsschat-data:
+  caddy-data:
+  caddy-config:
+
+networks:
+  frontend:
+  backend:
