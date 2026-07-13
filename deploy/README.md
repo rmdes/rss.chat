@@ -6,10 +6,26 @@ no Amazon SES, no scripting.com CDN calls at runtime -- everything the
 client and server need is vendored, patched, or replaced at build time.
 
 This overlay never edits a file under `client/` or `server/`; it only adds
-files under `deploy/`, so `git pull` from upstream stays conflict-free.
+files under `deploy/` (plus two convenience files at the repo root, `Makefile`
+and `.dockerignore`), so `git pull` from upstream stays conflict-free -- the
+only theoretical exception being if upstream itself later adds a root
+`Makefile` or `.dockerignore`.
 Background and design rationale: `docs/superpowers/specs/2026-07-13-rsschat-docker-deploy-design.md`.
 
 ## Quickstart
+
+From the repo root, the `Makefile` drives everything:
+
+```bash
+make install                     # creates .env, builds, starts, waits until healthy
+$EDITOR deploy/.env              # set RSSCHAT_DOMAIN (and SMTP_* for real mail); then:
+make up                          # apply the change
+```
+
+`make install` prints the site URL and the mail-catcher login when the stack
+is healthy. `make help` lists every target (see "Using make" below).
+
+Prefer raw compose? The equivalent longhand, run from `deploy/`:
 
 ```bash
 cd deploy
@@ -26,6 +42,29 @@ Until you configure a real SMTP relay, sign-in magic links land in MailPit
 at `https://RSSCHAT_DOMAIN/mail` (basic-auth protected -- credentials are
 printed by `generate-env.sh` and stored in `.env` as `MAILPIT_USER` /
 `MAILPIT_PASSWORD`).
+
+## Using make
+
+Run these from the repo root. Each wraps compose or a `deploy/scripts/*.sh`
+script -- nothing here does anything you can't do by hand.
+
+| Command | What it does |
+|---|---|
+| `make help` | List all targets (the default) |
+| `make install` | First run: create `.env` if missing, build, start, wait until healthy |
+| `make up` / `make down` | Start (waits for healthy) / stop the stack |
+| `make restart` | Restart the running services |
+| `make update` | `git pull`, rebuild, restart |
+| `make build` | Rebuild the app image |
+| `make logs` | Follow logs (`make logs SERVICE=rsschat` for one service) |
+| `make ps` | Service status |
+| `make shell` | Shell into the `rsschat` container |
+| `make env` | Generate `.env` (refuses to overwrite an existing one) |
+| `make backup` | Back up the database and feeds volume |
+| `make migrate FILE=path.sql` | Apply a SQL migration |
+| `make test` | Unit and build tests |
+| `make e2e` | Full end-to-end test against the running stack |
+| `make clean` | **Destroy the stack and its data** (asks for confirmation) |
 
 ## Env reference
 
