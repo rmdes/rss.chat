@@ -4,7 +4,8 @@ create table users (
 	screenname varchar (255) not null,
 	emailAddress varchar (255),
 	emailSecret varchar (64),
-	prefs json,
+	-- deviation from server/docs/install.md: default prevents a NULL-prefs crash in buildFeedForUser (rssnetwork.js:638) on a new user's first API post
+	prefs json not null default (json_object()),
 	ctHits int not null default 0,
 	ctHitsToday int not null default 0,
 	whenLastHit datetime,
