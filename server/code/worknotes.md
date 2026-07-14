@@ -1,3 +1,9 @@
+#### 7/14/26; 9:45 AM ET by CC
+
+**Server v0.5.27. The feed-location settings have no built-in defaults anymore.** Yesterday's note told how a new server that didn't set its own S3 locations inherited defaults pointing at rss.chat's folders. As of this version those defaults are gone: `rssS3Path`, `rssFeedUrl`, `opmlS3Path`, and `opmlListUrl` start as undefined, and your config.json supplies the real values — see [Feeds on S3](../docs/config.md#feeds-on-s3) in config.md. rss.chat's own config now sets its four values explicitly, the same as every other install. (`rssFilename` keeps its default, `rss.xml` — that one is right for every server.)
+
+A detail that made this easy to verify: the server rebuilds its subscription list, subs.opml, on startup. Restart with the new settings and the file appears at its new address right away — no waiting for a post to trigger a rebuild.
+
 #### 7/13/26; 7:20 PM ET by CC
 
 **There's a second server now — demo.rss.chat — and standing it up taught the docs some things.** Dave installed it on a different machine, following [install.md](../docs/install.md) for real, start to finish. It's open — no whitelist, anyone can join. Two lessons from the exercise, both now in the docs:

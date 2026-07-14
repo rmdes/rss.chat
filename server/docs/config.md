@@ -2,23 +2,17 @@
 
 `config.json` holds the values you provide to run an rss.chat server. It lives in the app's folder (e.g. `pagepark/domains/myserver.chat/config.json`) and is read once at startup. daveappserver reads the same file and fills in operational defaults for anything you leave out, so you only need the fields below.
 
-The required fields come first. The optional ones (websockets, access control, the human-readable note) follow.
+The settings divide into two groups. The first group is the values you must change -- they identify your server, your database, your storage. The second group is values that work as-is for almost every installation; read through them once, but expect to leave them alone.
 
-## Identity
+## Settings you must change
 
-### productName
-
-The internal name of the product. Used in logging and as the app's identity, not shown to users.
-
-`"productName": "rssChat"`
+Every value in this section is specific to your installation. Going down this list, replacing each example with your own value, is the heart of the install.
 
 ### productNameForDisplay
 
 The name users see in the UI (the title at the top of the page, for example).
 
 `"productNameForDisplay": "myserver.chat"`
-
-## URLs
 
 ### myDomain
 
@@ -37,14 +31,6 @@ The base URL the browser uses to reach the server. Item permalinks (guids) are d
 The base URL used to build the magic links in confirmation emails. Normally the same as `urlServerForClient`.
 
 `"urlServerForEmail": "https://myserver.chat/"`
-
-### urlServerHomePageSource
-
-The URL the server pulls the client's home page HTML from. Every installation currently pulls from the same place on scripting.com.
-
-`"urlServerHomePageSource": "https://code.scripting.com/rsschat/index.html"`
-
-## Database
 
 ### database
 
@@ -65,59 +51,73 @@ The MySQL connection. `database` is the schema name you created at install time 
 
 Never commit a real password. Keep `config.json` out of any public repo.
 
-## Feeds on S3
+### Feeds on S3
 
 The server publishes its RSS feeds and its subscription list as static files on Amazon S3. These four settings say where. Each pair is a location: the S3 path the server writes to, and the public URL readers fetch from -- they must point at the same place.
 
-**Every server must have its own locations.** If you leave these out, the built-in defaults point at rss.chat's own folders, and your server will overwrite rss.chat's feeds. This is not hypothetical -- it's exactly what happened the first time we set up a second server.
+**Every server must have its own locations.** There are no built-in defaults -- as of server v0.5.27, the server starts with these four values undefined, and your config.json supplies them. (Earlier versions defaulted to rss.chat's own folders, which caused exactly the confusion you'd expect the first time we set up a second server.)
 
-### rssS3Path
+#### rssS3Path
 
 The S3 folder the server writes user feeds into. Each user gets a subfolder named for their screenname.
 
 `"rssS3Path": "/myBucket/myserver.chat/users/"`
 
-### rssFeedUrl
+#### rssFeedUrl
 
 The public base URL of that same folder -- feed addresses are built from it, e.g. `https://users.myserver.chat/dave/rss.xml`.
 
 `"rssFeedUrl": "https://users.myserver.chat/"`
 
-### opmlS3Path
+#### opmlS3Path
 
 The S3 address the server writes its subscription list to -- an OPML file listing every user's feed.
 
 `"opmlS3Path": "/myBucket/myserver.chat/data/subs.opml"`
 
-### opmlListUrl
+#### opmlListUrl
 
 The public URL of that subscription list.
 
 `"opmlListUrl": "https://data.myserver.chat/subs.opml"`
 
-## Email sign-in
+### Email sign-in
 
-Sign-in is a magic link: the user enters an email, the server mails a confirmation link. These three fields shape that email.
+Sign-in is a magic link: the user enters an email, the server mails a confirmation link. These three fields shape that email, and each one names your server.
 
-### mailSender
+#### mailSender
 
 The From address on confirmation emails.
 
 `"mailSender": "admin@myserver.chat"`
 
-### confirmEmailSubject
+#### confirmEmailSubject
 
 The subject line of the confirmation email.
 
 `"confirmEmailSubject": "myserver.chat confirmation"`
 
-### operationToConfirm
+#### operationToConfirm
 
 The phrase used in the body of the confirmation email to describe what the user is confirming.
 
 `"operationToConfirm": "sign in to myserver.chat"`
 
-## Storage paths
+## Settings you'll rarely change
+
+These work as shipped for almost every installation. The websocket group is the one you're most likely to visit, when you turn on live updates in production.
+
+### productName
+
+The internal name of the product. Used in logging and as the app's identity, not shown to users.
+
+`"productName": "rssChat"`
+
+### urlServerHomePageSource
+
+The URL the server pulls the client's home page HTML from. Every installation currently pulls from the same place on scripting.com.
+
+`"urlServerHomePageSource": "https://code.scripting.com/rsschat/index.html"`
 
 ### prefsPath
 
@@ -131,35 +131,33 @@ Folder where the server keeps its data files.
 
 `"dataPath": "data/"`
 
-## WebSockets (live updates)
+### WebSockets (live updates)
 
-Live updates (a new post appearing in the timeline without a reload) run over a websocket. These four fields configure it. Leave `flWebsocketEnabled` false on a dev box that has no TLS/proxy in front of it.
+Live updates (a new post appearing in the timeline without a reload) run over a websocket. These four fields configure it. Leave `flWebsocketEnabled` false on a dev box that has no TLS/proxy in front of it; when you turn it on in production, `urlWebsocketServerForClient` gets your domain.
 
-### flWebsocketEnabled
+#### flWebsocketEnabled
 
 Turns live updates on or off. Default: `false`.
 
 `"flWebsocketEnabled": true`
 
-### websocketPort
+#### websocketPort
 
 The port the app's websocket server listens on. Your reverse proxy (Caddy) routes `wss://` upgrade requests to this port.
 
 `"websocketPort": 1462`
 
-### flSecureWebsocket
+#### flSecureWebsocket
 
 Whether the client connects over secure websockets (`wss://`). True in production where TLS is terminated by the proxy. Default: `false`.
 
 `"flSecureWebsocket": true`
 
-### urlWebsocketServerForClient
+#### urlWebsocketServerForClient
 
 The websocket URL the client opens. Empty string when websockets are off.
 
 `"urlWebsocketServerForClient": "wss://myserver.chat/"`
-
-## Access control
 
 ### whitelist
 
@@ -171,8 +169,6 @@ Optional. An array of email addresses allowed to sign in. Leave it out and anyon
 	"someone@example.com"
 	]
 ```
-
-## Misc
 
 ### note
 

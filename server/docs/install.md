@@ -7,6 +7,7 @@
 3. Inside the code folder, these are the files you need: config.json, emailtemplate.html, package.json, rssnetwork.js. You can remove the rest.
 4. Put the code folder wherever you want the server to run, on the machine that will run it.
 5. Open config.json in a text editor and replace the example values with your own. Every setting is explained in [config.md](config.md).
+	- Don't skip the four feed-location settings: `rssS3Path`, `rssFeedUrl`, `opmlS3Path`, `opmlListUrl`. They have no built-in defaults -- every server must have its own locations, and they come from your config.json. See [config.md](config.md) for what each one means.
 6. Create your database -- paste the SQL from the next section at a `mysql>` prompt.
 7. In the code folder, run `npm install`.
 8. Start the server: `node rssnetwork.js`.

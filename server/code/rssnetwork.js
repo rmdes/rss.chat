@@ -1,4 +1,4 @@
-var myVersion = "0.5.26", myProductName = "rss.network";
+var myVersion = "0.5.27", myProductName = "rss.network";
 
 const daveappserver = require ("daveappserver");
 const rss = require ("daverss");
@@ -36,12 +36,12 @@ var config = {
 	rssCloudProtocol:  "http-post",
 	
 	urlWebsocketServerForClient: "",
-	rssS3Path: "/scripting/rssnetwork/users/", //4/22/26 by DW
-	rssFeedUrl: "https://users.rss.network/",
-	rssFilename: "rss.xml",
 	
-	opmlS3Path: "/scripting/rssnetwork/data/subs.opml",
-	opmlListUrl: "https://data.rss.network/subs.opml",
+	rssS3Path: undefined, //7/14/26 by DW
+	rssFeedUrl: undefined,
+	rssFilename: "rss.xml",
+	opmlS3Path: undefined,
+	opmlListUrl: undefined,
 	
 	urlFeedlandServer: "https://feedland.social/",
 	urlFeedlandRedirect: "https://feedland.social/?item=",
