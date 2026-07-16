@@ -1,5 +1,6 @@
 #!/bin/bash
-#deploy/scripts/backup.sh -- dump the database and tar the feeds volume; keep 14 of each
+#deploy/scripts/backup.sh -- dump the database; keep the newest 14 dumps
+#The feeds are rows in the files table (flFeedsInDatabase), so the dump holds them too.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -17,14 +18,11 @@ mkdir -p "$DEST"
 rm -f "$DEST"/*.partial
 
 DB_FILE="$DEST/db-$STAMP.sql.gz"
-FEEDS_FILE="$DEST/feeds-$STAMP.tar.gz"
 
 # MYSQL_PWD still briefly shows up in this host's `docker compose exec` argv (ps), but no longer on the mysqldump process's own command line.
-docker compose exec -T -e MYSQL_PWD="$MYSQL_PASSWORD" mysql mysqldump -u"${MYSQL_USER:-rsschat}" "${MYSQL_DATABASE:-rsschat}" | gzip > "$DB_FILE.partial"
+# --no-tablespaces: the app's mysql user has no PROCESS privilege and doesn't need it; without the flag mysqldump prints an error it then ignores.
+docker compose exec -T -e MYSQL_PWD="$MYSQL_PASSWORD" mysql mysqldump --no-tablespaces -u"${MYSQL_USER:-rsschat}" "${MYSQL_DATABASE:-rsschat}" | gzip > "$DB_FILE.partial"
 mv "$DB_FILE.partial" "$DB_FILE"
-
-docker compose exec -T rsschat tar -czf - -C /feeds . > "$FEEDS_FILE.partial"
-mv "$FEEDS_FILE.partial" "$FEEDS_FILE"
 
 prune () { # keep the newest 14 files matching $1 glob
 	local files
@@ -35,6 +33,5 @@ prune () { # keep the newest 14 files matching $1 glob
 	done
 }
 prune "db-*.sql.gz"
-prune "feeds-*.tar.gz"
 
-echo "backup: $DB_FILE + $FEEDS_FILE"
+echo "backup: $DB_FILE"

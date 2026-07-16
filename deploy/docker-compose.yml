@@ -23,7 +23,6 @@ services:
       MAIL_SENDER: ${MAIL_SENDER:-rsschat@localhost}
       TZ: ${TZ:-UTC}
     volumes:
-      - feeds-data:/feeds
       - static-data:/static
       - rsschat-data:/app/data
     healthcheck:
@@ -78,7 +77,6 @@ services:
       - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - feeds-data:/feeds:ro
       - static-data:/static:ro
       - caddy-data:/data
       - caddy-config:/config
@@ -98,7 +96,6 @@ services:
 
 volumes:
   mysql-data:
-  feeds-data:
   static-data:
   rsschat-data:
   caddy-data:

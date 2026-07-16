@@ -7,12 +7,8 @@
 		reverse_proxy mailpit:8025
 	}
 
-	handle_path /feeds/* {
-		root * /feeds
-		@opml path *.opml
-		header @opml Content-Type "text/xml; charset=utf-8"
-		file_server
-	}
+	# Feeds are not here: the app serves them from the database at /users/* and
+	# /data/subs.opml, which the default reverse_proxy below already covers.
 
 	handle_path /static/* {
 		root * /static

@@ -75,7 +75,7 @@ script -- nothing here does anything you can't do by hand.
 | `make ps` | Service status |
 | `make shell` | Shell into the `rsschat` container |
 | `make env` | Generate `.env` (refuses to overwrite an existing one) |
-| `make backup` | Back up the database and feeds volume |
+| `make backup` | Back up the database (feeds included -- they live in it) |
 | `make migrate FILE=path.sql` | Apply a SQL migration |
 | `make test` | Unit and build tests |
 | `make e2e` | Full end-to-end test against the running stack |
@@ -104,6 +104,7 @@ Every variable lives in `.env` (copy or generate from `.env.example`).
 | `MAILPIT_PASSWORD` | required | basic-auth password for `/mail` (plaintext, for your own reference) |
 | `MAILPIT_PASSWORD_HASH` | required | bcrypt hash of the above; this is what Caddy actually checks |
 | `TZ` | `UTC` | container timezone |
+
 
 ## Mail
 
@@ -138,14 +139,15 @@ for you; a hand-edited hash does not get it for free.
 
 ## Feeds
 
-Feeds live on the `feeds-data` volume, mounted read-only into Caddy and
-read-write into the app container. They are plain static XML -- nothing
-about them requires this instance or any particular reader:
+Feeds are stored in the database (the `files` table) and served by the app
+itself -- upstream's `flFeedsInDatabase`, which `make-config.js` turns on. They
+are plain XML; nothing about them requires this instance or any particular
+reader:
 
-- `https://DOMAIN/feeds/users/{screenname}/rss.xml` -- one user's feed
-- `https://DOMAIN/feeds/users/{screenname}/comments/{id}.xml` -- replies to one item
-- `https://DOMAIN/feeds/users/rss.xml` -- the "everyone" firehose feed
-- `https://DOMAIN/feeds/subs.opml` -- the subscription list (OPML)
+- `https://DOMAIN/users/{screenname}/rss.xml` -- one user's feed
+- `https://DOMAIN/users/{screenname}/comments/{id}.xml` -- replies to one item
+- `https://DOMAIN/users/rss.xml` -- the "everyone" firehose feed
+- `https://DOMAIN/data/subs.opml` -- the subscription list (OPML)
 
 Anyone can subscribe to any of these in any feed reader; that's the point
 of the network.
@@ -176,23 +178,22 @@ before trusting the result.
 ## Backup & restore
 
 ```bash
-make backup                         # writes deploy/backups/db-<stamp>.sql.gz + feeds-<stamp>.tar.gz, keeps the newest 14 of each
+make backup                         # writes deploy/backups/db-<stamp>.sql.gz, keeps the newest 14
 ```
 
+One dump is the whole instance: since the feeds live in the database, they are
+in it too. (Older backups also carry a `feeds-<stamp>.tar.gz`, from when feeds
+were files on a volume. Those are dead weight now and can be deleted.)
+
 To restore onto a fresh stack, bring it up empty (the schema is applied
-automatically by `db/init`), then load the archives. The restore itself is a
+automatically by `db/init`), then load the dump. The restore itself is a
 manual step -- there is no `make` target for it, since it is rare and
 destructive:
 
 ```bash
 make up                                                               # empty stack, schema applied by db/init
 gunzip < deploy/backups/db-<stamp>.sql.gz | docker compose --project-directory deploy -f deploy/docker-compose.yml exec -T mysql mysql -u"$MYSQL_USER" "$MYSQL_DATABASE"
-docker compose --project-directory deploy -f deploy/docker-compose.yml exec -T rsschat tar -xzf - -C /feeds < deploy/backups/feeds-<stamp>.tar.gz
 ```
-
-Restoring the feeds tarball is optional -- the app regenerates each feed
-file the next time that user or item is written -- but restoring it gives
-you back everything immediately instead of waiting for activity.
 
 Schema changes to an existing install go through
 `make migrate FILE=deploy/db/migrations/<file>.sql`; fresh installs

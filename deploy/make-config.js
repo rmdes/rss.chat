@@ -46,11 +46,12 @@ const config = {
 	smtpUsername: optional ("SMTP_USERNAME", ""),
 	smtpPassword: optional ("SMTP_PASSWORD", ""),
 
-	rssFeedUrl: "https://" + domain + "/feeds/users/",
+	//feeds live in the database and the server serves them itself, at /users/<name>/rss.xml
+	//and /data/subs.opml -- no Amazon, no S3 credentials. rssFeedUrl and opmlListUrl are
+	//derived from urlServerForClient by the server (rssnetwork.js initDatabaseUrls), so the
+	//four S3 location settings are deliberately absent.
+	flFeedsInDatabase: true,
 	rssFilename: "rss.xml",
-	rssS3Path: "/users/", //the daves3 shim writes under /feeds, so this lands at /feeds/users/
-	opmlS3Path: "/subs.opml",
-	opmlListUrl: "https://" + domain + "/feeds/subs.opml",
 	flRssCloudEnabled: optional ("RSSCLOUD_ENABLED", "true") === "true",
 
 	database: {

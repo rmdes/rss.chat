@@ -11,7 +11,6 @@ node -e "JSON.parse (require ('fs').readFileSync ('config.json', 'utf8'))" || {
 echo "entrypoint: config.json generated for ${RSSCHAT_DOMAIN}"
 
 mkdir -p data
-mkdir -p "${FEEDS_ROOT:-/feeds}"
 mkdir -p /static
 if [ -d /static ]; then #shared volume; caddy serves it read-only
 	cp -a /app/static-src/. /static/
@@ -20,7 +19,7 @@ fi
 
 # drop root: chown the volume mountpoints the node process writes to, then
 # exec node as the unprivileged 'node' user shipped in the base image.
-chown -R node:node /app/data "${FEEDS_ROOT:-/feeds}" /static
+chown -R node:node /app/data /static
 
 # daveappserver writes stats.json to cwd (/app, root-owned); as the node user it can only
 # rewrite the file if it already exists and node owns it. Seed it with valid empty JSON.

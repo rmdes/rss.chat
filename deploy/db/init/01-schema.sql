@@ -44,3 +44,13 @@ create table likes (
 	primary key (screenname, itemId),
 	index itemId (itemId)
 	) character set utf8mb4 collate utf8mb4_unicode_ci;
+
+create table files (
+	path varchar (512) not null,
+	type varchar (64),
+	filecontents longtext,
+	whenCreated datetime default current_timestamp,
+	whenUpdated datetime default current_timestamp on update current_timestamp,
+	ctSaves int unsigned not null default 1,
+	primary key (path)
+	) character set utf8mb4 collate utf8mb4_unicode_ci;

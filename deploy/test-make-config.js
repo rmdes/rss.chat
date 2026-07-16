@@ -17,10 +17,6 @@ test ("produces valid json with domain-derived urls", function () {
 	assert.strictEqual (config.myDomain, "chat.example.com");
 	assert.strictEqual (config.urlServerForClient, "https://chat.example.com/");
 	assert.strictEqual (config.urlWebsocketServerForClient, "wss://chat.example.com/");
-	assert.strictEqual (config.rssFeedUrl, "https://chat.example.com/feeds/users/");
-	assert.strictEqual (config.opmlListUrl, "https://chat.example.com/feeds/subs.opml");
-	assert.strictEqual (config.rssS3Path, "/users/");
-	assert.strictEqual (config.opmlS3Path, "/subs.opml");
 	assert.strictEqual (config.port, 1452);
 	assert.strictEqual (config.websocketPort, 1462);
 	assert.strictEqual (config.database.password, "s3cr3t");
@@ -28,6 +24,15 @@ test ("produces valid json with domain-derived urls", function () {
 	assert.strictEqual (config.database.flUseMySql2, true);
 	assert.strictEqual (config.smtpHost, "mailpit");
 	assert.strictEqual (config.whitelist, undefined); //empty WHITELIST means open signup
+	});
+test ("feeds live in the database, never on s3", function () {
+	const config = JSON.parse (run (goodEnv).stdout);
+	assert.strictEqual (config.flFeedsInDatabase, true);
+	//the four s3 location settings must stay absent -- the server derives the urls itself
+	assert.strictEqual (config.rssS3Path, undefined);
+	assert.strictEqual (config.rssFeedUrl, undefined);
+	assert.strictEqual (config.opmlS3Path, undefined);
+	assert.strictEqual (config.opmlListUrl, undefined);
 	});
 test ("whitelist csv becomes an array", function () {
 	const result = run (Object.assign ({WHITELIST: " a@b.com, c@d.com "}, goodEnv));

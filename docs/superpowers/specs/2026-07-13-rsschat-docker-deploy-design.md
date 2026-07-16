@@ -1,8 +1,16 @@
 # rss.chat self-contained Docker deployment — design
 
 Date: 2026-07-13
-Status: approved (design), implementation not started
+Status: implemented and running; amended 2026-07-16 for upstream v0.5.27
 Author: Ricardo (rmdes) with Claude Code
+
+> **Amendment, 2026-07-16 (server v0.5.27).** Upstream solved the S3 problem
+> itself: `flFeedsInDatabase` stores feeds in a `files` table and serves them
+> from the app, so the filesystem shim this design built no longer writes
+> anything and the `feeds-data` volume is gone. The overlay now just turns the
+> flag on. Dependency #1 below is upstream's answer, not ours; the rest of the
+> design stands. Details are inline, marked as amendments.
+
 
 ## Motivation
 
@@ -53,7 +61,7 @@ Four services, two networks, mirroring feedland-docker:
 ┌─ frontend network ──────────────────────────────┐
 │  caddy (80/443)                    mailpit      │
 │    │ /            → rsschat:1452   (web UI      │
-│    │ /feeds/*     → feeds-data volume  at /mail)│
+│    │ /users/*     → rsschat:1452 (from the db)  │
 │    │ /static/*    → patched client + vendor     │
 │    │ websocket    → rsschat:1462                │
 │    │ /mail*       → mailpit:8025                │
@@ -62,17 +70,18 @@ Four services, two networks, mirroring feedland-docker:
 │  rsschat (node, image built from this repo)     │
 │    └── mysql:8.0 (healthcheck-gated)            │
 └─────────────────────────────────────────────────┘
-volumes: mysql-data, feeds-data, static-data, rsschat-data,
+volumes: mysql-data, static-data, rsschat-data,
          caddy-data, caddy-config
 ```
 
 - Only Caddy exposes ports (80/443, automatic HTTPS).
-- Single domain, path-based: feeds at `https://DOMAIN/feeds/users/{name}/rss.xml`,
-  subscription list at `https://DOMAIN/feeds/subs.opml`, static assets at
-  `https://DOMAIN/static/…`, MailPit UI at `https://DOMAIN/mail`. A separate
-  feeds subdomain remains possible later via one env var.
-- `feeds-data` is shared: the app writes it (via the daves3 shim), Caddy
-  serves it read-only.
+- Single domain, path-based: feeds at `https://DOMAIN/users/{name}/rss.xml`,
+  subscription list at `https://DOMAIN/data/subs.opml`, static assets at
+  `https://DOMAIN/static/…`, MailPit UI at `https://DOMAIN/mail`.
+- *Amended 2026-07-16:* the app serves the feeds itself out of the database, so
+  Caddy no longer has a feeds root and `feeds-data` is gone. The overlay had
+  not been deployed anywhere when this changed, so there are no old `/feeds/*`
+  subscribers to redirect and no upgrade path to carry.
 - `static-data` is populated by the app container's entrypoint (rsync from
   the image) so client updates ship with the image and Caddy never rebuilds.
 
@@ -84,14 +93,14 @@ deploy/
   Dockerfile              # builds rsschat image from ../server + ../client
   entrypoint.sh           # env vars → config.json, rsync static, exec node
   Caddyfile
-  daves3-shim/            # drop-in daves3 replacement → writes /feeds
+  daves3-shim/            # drop-in daves3 replacement → throws; feeds go to the database
   vendor.sh               # build-time fetch of CDN includes, fonts, images
   vendor.lock             # URL + sha256 pin per asset
   patches/                # build-time URL rewrites (index.html, globals.js, …)
   db/init/01-schema.sql   # vendored from server/docs/install.md
   db/conf/my.cnf          # utf8mb4
   scripts/generate-env.sh # .env with random passwords
-  scripts/backup.sh       # mysqldump + feeds tar, with retention
+  scripts/backup.sh       # mysqldump (feeds included), with retention
   scripts/migrate.sh      # apply SQL migrations
   .env.example
   README.md
@@ -138,24 +147,21 @@ patched client + vendor tree at `/static/`, and the entrypoint.
 
 ## The daves3 shim
 
-The server calls exactly one daves3 function, in four places
-(`updateFeedsOnS3` ×2, `publishCommentsFeed`, `updateSubscriptionListOnS3`):
+*Amended 2026-07-16.* Originally the shim reimplemented `newObject` and wrote
+feed XML to a `/feeds` volume, which Caddy served — this design's answer to the
+S3 dependency. Server v0.5.27 made that unnecessary: `flFeedsInDatabase` routes
+every feed write to a `files` table (`publishFeedFile` and
+`updateSubscriptionListOnS3` are the only two `s3.newObject` call sites, and
+both sit in the `else` branch), and the app serves them at `/users/*` and
+`/data/subs.opml`.
 
-```
-newObject (path, data, type, acl, callback)
-```
-
-The shim:
-
-- strips the configured S3 prefix (`rssS3Path` / `opmlS3Path` keep their
-  upstream values; the shim maps them under `/feeds`)
-- sanitizes the path (rejects `..`, absolute escapes)
-- writes atomically (temp file + rename) under the `/feeds` volume
-- calls back with the same `(err, data)` contract
-
-Every other property access on the module throws:
-`"daves3 shim: unimplemented call <name> — upstream now uses more of daves3"`.
-Upstream growth surfaces as a loud error, not silent data loss.
+`rssnetwork.js` still requires `daves3` unconditionally, so the shim stays — but
+as a stub, not an implementation. Every property access throws. It earns its
+place two ways: the real package (and Amazon's SDK) never enters the image, and
+if a config regression or an upstream change ever routed a write back to S3, it
+fails loudly instead of silently writing to somebody else's bucket. `make test`
+asserts exactly that, and the e2e run greps the container log to confirm the
+stub is never reached.
 
 ## Configuration contract
 
@@ -164,7 +170,7 @@ Upstream growth surfaces as a loud error, not silent data loss.
 
 | Env var | Default | Maps to |
 |---|---|---|
-| `RSSCHAT_DOMAIN` | required | `myDomain`, `urlServerForClient`, `urlServerForEmail`, `urlWebsocketServerForClient` (wss://DOMAIN/), `rssFeedUrl` (https://DOMAIN/feeds/users/), `opmlListUrl` (https://DOMAIN/feeds/subs.opml) |
+| `RSSCHAT_DOMAIN` | required | `myDomain`, `urlServerForClient`, `urlServerForEmail`, `urlWebsocketServerForClient` (wss://DOMAIN/). The server derives the feed URLs from `urlServerForClient`, so the four S3 location settings are deliberately absent |
 | `PRODUCT_NAME` | `rss.chat` | `productName`, `productNameForDisplay`, `confirmEmailSubject`, `operationToConfirm` |
 | `WHITELIST` | empty | `whitelist` array (CSV); empty = open signup |
 | `RSSCLOUD_ENABLED` | `true` | `flRssCloudEnabled` |
@@ -201,7 +207,7 @@ On a scratch domain, end to end:
 1. `docker compose up -d` from a clean checkout.
 2. Create an account via the MailPit magic link; sign in.
 3. Post / reply / like / edit / delete; after each, confirm the user feed,
-   everyone feed, and comments feeds regenerate under `/feeds`.
+   everyone feed, and comments feeds regenerate under `/users/`.
 4. Validate feed XML (channel elements, `source:` namespace, `source:self`,
    `source:comments`).
 5. Run `examples/threadwalker` against this instance's feeds — the repo's
@@ -222,10 +228,12 @@ point of a social network built on RSS.
 
 ## Cloudron (future)
 
-Everything maps: MySQL addon, sendmail addon, localstorage for `/feeds`,
-one app container; Caddy's routing moves into Cloudron's nginx config. The
-daves3 shim and vendored client are identical in that world. Deferred until
-the compose deployment has proven itself on a real instance.
+Everything maps: MySQL addon, sendmail addon, one app container; Caddy's
+routing moves into Cloudron's nginx config. The vendored client is identical in
+that world. Feeds-in-database makes this simpler than originally sketched --
+there is no feeds volume to map to localstorage, so the MySQL addon carries the
+whole instance. Deferred until the compose deployment has proven itself on a
+real instance.
 
 ---
 

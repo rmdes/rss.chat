@@ -41,16 +41,16 @@ echo "-- 4 post"
 ID=$(C -G -X POST "$BASE/newpost?$AUTH" --data-urlencode 'jsontext={"description":"hello from the e2e test"}' | jsonget ".id")
 [ -n "$ID" ] || fail "newpost returned no id"
 sleep 1
-C "$BASE/feeds/users/$NAME/rss.xml" | grep -q "hello from the e2e test" || fail "user feed missing the post"
-C "$BASE/feeds/users/rss.xml"       | grep -q "hello from the e2e test" || fail "everyone feed missing the post"
-C "$BASE/feeds/subs.opml"           | grep -q "$NAME" || fail "subs.opml missing the user"
+C "$BASE/users/$NAME/rss.xml" | grep -q "hello from the e2e test" || fail "user feed missing the post"
+C "$BASE/users/rss.xml"       | grep -q "hello from the e2e test" || fail "everyone feed missing the post"
+C "$BASE/data/subs.opml"           | grep -q "$NAME" || fail "subs.opml missing the user"
 
 echo "-- 5 reply -> comments feed"
 RID=$(C -G -X POST "$BASE/newpost?$AUTH" --data-urlencode "jsontext={\"description\":\"a reply from e2e\",\"inReplyTo\":$ID}" | jsonget ".id")
 [ -n "$RID" ] || fail "reply returned no id"
 sleep 1
-C "$BASE/feeds/users/$NAME/comments/$ID.xml" | grep -q "a reply from e2e" || fail "comments feed missing the reply"
-C "$BASE/feeds/users/$NAME/rss.xml" | grep -q "source:comments" || fail "user feed missing source:comments"
+C "$BASE/users/$NAME/comments/$ID.xml" | grep -q "a reply from e2e" || fail "comments feed missing the reply"
+C "$BASE/users/$NAME/rss.xml" | grep -q "source:comments" || fail "user feed missing source:comments"
 
 echo "-- 6 like"
 C -G -X POST "$BASE/togglelike?$AUTH" --data-urlencode "id=$ID" > /dev/null
@@ -60,12 +60,12 @@ LIKES=$(C "$BASE/getiteminfo?id=$ID&format=feedland&screenname=$NAME" | jsonget 
 echo "-- 7 edit"
 C -G -X POST "$BASE/updatepost?$AUTH" --data-urlencode "jsontext={\"id\":$ID,\"description\":\"hello edited by e2e\"}" > /dev/null
 sleep 1
-C "$BASE/feeds/users/$NAME/rss.xml" | grep -q "hello edited by e2e" || fail "edit not reflected in feed"
+C "$BASE/users/$NAME/rss.xml" | grep -q "hello edited by e2e" || fail "edit not reflected in feed"
 
 echo "-- 8 threadwalker walks our feeds"
 TW=$(mktemp -d)
 cp ../examples/threadwalker/walker.js ../examples/threadwalker/package.json "$TW/"
-FROM="https://users.rss.network/manton/rss.xml" TO="$BASE/feeds/users/$NAME/rss.xml" perl -pi -e 's/\Q$ENV{FROM}\E/$ENV{TO}/' "$TW/walker.js"
+FROM="https://users.rss.network/manton/rss.xml" TO="$BASE/users/$NAME/rss.xml" perl -pi -e 's/\Q$ENV{FROM}\E/$ENV{TO}/' "$TW/walker.js"
 FROM="https://rss.chat/?id=204" TO="$BASE/?id=$ID" perl -pi -e 's/\Q$ENV{FROM}\E/$ENV{TO}/' "$TW/walker.js"
 (cd "$TW" && npm install --silent --no-audit --no-fund && NODE_TLS_REJECT_UNAUTHORIZED=0 node walker.js) > "$TW/out.txt" 2>/dev/null
 grep -q "hello edited by e2e" "$TW/out.txt" || fail "threadwalker missed the post"
@@ -75,10 +75,12 @@ rm -rf "$TW"
 echo "-- 9 delete the reply"
 C -G -X POST "$BASE/deletepost?$AUTH" --data-urlencode "id=$RID" > /dev/null
 sleep 1
-C "$BASE/feeds/users/$NAME/comments/$ID.xml" | grep -q "a reply from e2e" && fail "deleted reply still in comments feed"
+C "$BASE/users/$NAME/comments/$ID.xml" | grep -q "a reply from e2e" && fail "deleted reply still in comments feed"
 
 echo "-- 10 no external calls"
 #the startup config echo legitimately contains "flRssCloudEnabled": false -- not an external call
 docker compose logs rsschat 2>&1 | grep -v '"flRssCloudEnabled"' | grep -iE "amazonaws|scripting\.com|rsscloud" && fail "server log mentions external hosts" || true
+#feeds live in the database; nothing may reach the daves3 stub
+docker compose logs rsschat 2>&1 | grep -i "daves3 shim" && fail "something called daves3 -- feeds should go to the database" || true
 
 echo "E2E: ALL CHECKS PASSED"
