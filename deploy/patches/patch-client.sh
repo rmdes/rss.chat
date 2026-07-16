@@ -53,8 +53,12 @@ rep "$GLB" "https://imgs.scripting.com/2024/09/10/kittyStamp.png" "/static/vendo
 # styles.css: Archivo Black comes from the vendored fonts.css
 rep "$CSS" "@import url('https://fonts.googleapis.com/css?family=Archivo+Black');" "/* Archivo Black is vendored via /static/vendor/fonts/fonts.css */"
 
-if grep -nE "scripting\.com|amazonaws\.com|googleapis\.com|gstatic\.com|jsdelivr\.net" "$IDX" "$GLB" "$CSS"; then
-	echo "patch-client: external URLs remain (see above)" >&2
+# Nothing the browser fetches may still point off-instance. An <a href> is not a
+# fetch -- it is a link the reader may click, and upstream's Docs menu links out to
+# source.scripting.com and github on purpose -- so anchors are allowed through while
+# src=, <link href=, @import and url() are not.
+if grep -nE "scripting\.com|amazonaws\.com|googleapis\.com|gstatic\.com|jsdelivr\.net" "$IDX" "$GLB" "$CSS" | grep -vE "<a [^>]*href="; then
+	echo "patch-client: external URLs remain in something the page loads (see above)" >&2
 	exit 1
 fi
 echo "patch-client: OK"
