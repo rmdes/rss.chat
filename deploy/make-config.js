@@ -52,6 +52,9 @@ const config = {
 	//four S3 location settings are deliberately absent.
 	flFeedsInDatabase: true,
 	rssFilename: "rss.xml",
+	//upstream defaults this to //s3.amazonaws.com/scripting.com/favicon.ico and redirects
+	///favicon.ico there; we serve the same icon from our own vendored copy instead.
+	urlFavicon: optional ("FAVICON_URL", "/static/vendor/favicon.ico"),
 	flRssCloudEnabled: optional ("RSSCLOUD_ENABLED", "true") === "true",
 
 	database: {

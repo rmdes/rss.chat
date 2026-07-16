@@ -91,6 +91,7 @@ Every variable lives in `.env` (copy or generate from `.env.example`).
 | `PRODUCT_NAME` | `rss.chat` | display name, confirmation email subject/copy |
 | `WHITELIST` | empty | comma-separated emails allowed to sign up; empty = open signup |
 | `RSSCLOUD_ENABLED` | `true` | ping rpc.rsscloud.io on publish (outbound only) |
+| `FAVICON_URL` | `/static/vendor/favicon.ico` | tab icon; the vendored default keeps `/favicon.ico` off amazonaws.com |
 | `MYSQL_ROOT_PASSWORD` | required | MySQL root password (container init only) |
 | `MYSQL_PASSWORD` | required | app DB user password |
 | `MYSQL_DATABASE` | `rsschat` | database name |

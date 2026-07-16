@@ -34,6 +34,15 @@ test ("feeds live in the database, never on s3", function () {
 	assert.strictEqual (config.opmlS3Path, undefined);
 	assert.strictEqual (config.opmlListUrl, undefined);
 	});
+test ("the favicon is served locally, not from amazon", function () {
+	const config = JSON.parse (run (goodEnv).stdout);
+	assert.strictEqual (config.urlFavicon, "/static/vendor/favicon.ico");
+	assert.doesNotMatch (JSON.stringify (config), /amazonaws/);
+	});
+test ("the favicon url can be overridden", function () {
+	const result = run (Object.assign ({FAVICON_URL: "/static/client/mine.png"}, goodEnv));
+	assert.strictEqual (JSON.parse (result.stdout).urlFavicon, "/static/client/mine.png");
+	});
 test ("whitelist csv becomes an array", function () {
 	const result = run (Object.assign ({WHITELIST: " a@b.com, c@d.com "}, goodEnv));
 	assert.deepStrictEqual (JSON.parse (result.stdout).whitelist, ["a@b.com", "c@d.com"]);

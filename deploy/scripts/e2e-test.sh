@@ -45,6 +45,11 @@ C "$BASE/users/$NAME/rss.xml" | grep -q "hello from the e2e test" || fail "user 
 C "$BASE/users/rss.xml"       | grep -q "hello from the e2e test" || fail "everyone feed missing the post"
 C "$BASE/data/subs.opml"           | grep -q "$NAME" || fail "subs.opml missing the user"
 
+# /favicon.ico must resolve to our own vendored copy, never to amazon
+LOC=$(C -o /dev/null -w '%{redirect_url}' "$BASE/favicon.ico")
+case "$LOC" in *amazonaws*) fail "favicon redirects to amazon: $LOC";; esac
+C -o /dev/null -w '%{http_code}' "$BASE/static/vendor/favicon.ico" | grep -q 200 || fail "vendored favicon not served"
+
 echo "-- 5 reply -> comments feed"
 RID=$(C -G -X POST "$BASE/newpost?$AUTH" --data-urlencode "jsontext={\"description\":\"a reply from e2e\",\"inReplyTo\":$ID}" | jsonget ".id")
 [ -n "$RID" ] || fail "reply returned no id"

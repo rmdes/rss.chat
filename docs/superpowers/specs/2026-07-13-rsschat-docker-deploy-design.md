@@ -10,7 +10,10 @@ Author: Ricardo (rmdes) with Claude Code
 > anything and the `feeds-data` volume is gone. The overlay now just turns the
 > flag on. Dependency #1 below is upstream's answer, not ours; the rest of the
 > design stands. Details are inline, marked as amendments.
-
+>
+> One dependency moved the other way: v0.5.27 added `urlFavicon`, defaulting to
+> `//s3.amazonaws.com/scripting.com/favicon.ico`, which the server redirects
+> `/favicon.ico` to. It is vendored and served locally like every other asset.
 
 ## Motivation
 
@@ -171,6 +174,7 @@ stub is never reached.
 | Env var | Default | Maps to |
 |---|---|---|
 | `RSSCHAT_DOMAIN` | required | `myDomain`, `urlServerForClient`, `urlServerForEmail`, `urlWebsocketServerForClient` (wss://DOMAIN/). The server derives the feed URLs from `urlServerForClient`, so the four S3 location settings are deliberately absent |
+| `FAVICON_URL` | `/static/vendor/favicon.ico` | `urlFavicon` -- overrides upstream's amazonaws.com default |
 | `PRODUCT_NAME` | `rss.chat` | `productName`, `productNameForDisplay`, `confirmEmailSubject`, `operationToConfirm` |
 | `WHITELIST` | empty | `whitelist` array (CSV); empty = open signup |
 | `RSSCLOUD_ENABLED` | `true` | `flRssCloudEnabled` |
