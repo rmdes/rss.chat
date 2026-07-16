@@ -117,6 +117,14 @@ create table files (
 
 Then add `"flFeedsInDatabase": true` to your config.json, remove the four feed-location settings (`rssS3Path`, `rssFeedUrl`, `opmlS3Path`, `opmlListUrl`), and restart. The server rebuilds every feed into the database at startup, so the files are all there before the first request. Anyone subscribed to your feeds at the old S3 addresses will need a redirect from the old location to the new one -- a single permanent-redirect rule on the old feed domain, pointing each path at the same path on your server, moves every subscriber over.
 
+**One more step, and your feeds will be empty without it.** Each post remembers the address of the feed it belongs to, in the `feedUrl` column of the `items` table, and feeds are built by matching on that address. When you switch to database mode your feed addresses change -- they were wherever `rssFeedUrl` pointed, now they're `https://yourdomain.com/users/` -- so posts saved before the switch no longer match, and every rebuilt feed comes up empty. The fix is one SQL statement that rewrites the old base address to the new one:
+
+```sql
+update items set feedUrl = replace (feedUrl, 'https://old.feed.domain/', 'https://yourdomain.com/users/');
+```
+
+Put your old `rssFeedUrl` value in the first string and your server's address plus `/users/` in the second, run it, then restart the server so the feeds rebuild. When we upgraded rss.chat this was the step we missed the first time -- a user's feed was empty until we found it.
+
 The `likes` table:
 
 ```sql
