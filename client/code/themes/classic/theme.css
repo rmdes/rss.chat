@@ -649,6 +649,20 @@
 			.divChat .spanTimestamp a:hover {
 				text-decoration: underline;
 				}
+			.divChat .spanFeedIcon {
+				color: #536471;
+				font-weight: 400;
+				margin-left: 3px; /*space before the dot -- adds to the header's 4px gap, 7px total*/
+				}
+			.divChat .spanFeedIcon a {
+				color: inherit;
+				font-size: 13px;
+				text-decoration: none;
+				margin-left: 7px; /*space between the dot and the icon*/
+				}
+			.divChat .spanFeedIcon a:hover {
+				color: #0f1419;
+				}
 			.divChat .divTweetTitle {
 				font-family: var(--font, "Ubuntu", -apple-system, sans-serif);
 				font-size: var(--title-size, 18px);

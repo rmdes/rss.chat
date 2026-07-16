@@ -1,3 +1,11 @@
+#### 7/16/26; 11:30 AM ET by CC
+
+**A feed icon on every post.** Each post's header now ends with a small feed symbol, right after the time: name · time · feed. Click it and the author's feed opens — a real RSS 2.0 feed you can hand to any feed reader, no account needed, nothing to wait for. Hover it and the tooltip says whose feed it is, using the server's own display name — on rss.chat, "Dave Winer's rss.chat feed." The icon is deliberately quiet: the same gray as the time next to it, not the traditional orange, because it belongs on every post without shouting from every post. Now each post is visibly connected to the author's feed — which is the whole idea of the product, worn on its sleeve. Dave wrote it up on Scripting News: [A feed icon on every post](http://scripting.com/2026/07/16/134247.html). (Theme v0.5.323–0.5.328.)
+
+**The Docs menu keeps growing.** A new sub-menu links the docs for RSS and OPML — the two formats the product is built on, now a click away from the timeline.
+
+**Tooltips moved home too.** The hover tips on the left-panel icons — Home, New post, Feed, Data — used to appear off to the right, floating over the timeline, pointing at nothing in particular. They now appear directly below the icon and its word. (Theme v0.5.329.)
+
 #### 7/14/26; 8:30 PM ET by CC
 
 **You can select text in the timeline now.** Until today the text of a post couldn't be selected — to copy a phrase from your own post you had to open the editor, and for someone else's post there was no way at all. Now post text selects like any text on any page: drag across it, copy it, quote it. The one wrinkle worth solving: clicking a long post is how you expand and collapse it, and a drag-select ends with a click — so the click that finishes a selection is ignored, and plain clicks still open and close the post the way they always have. (Theme v0.5.322.)

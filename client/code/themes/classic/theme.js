@@ -1,7 +1,7 @@
 function chatUserInterface (userOptions) { //5/2/26 by Claude + DW -- classic theme (3-col), renamed from twitter 7/2/26
 			console.log ("chatUserInterface (classic)");
 
-			const themesVersion = "0.5.322"; //bump on every theme edit -- timeline text is selectable now; the click that ends a drag-select no longer toggles the post open, 7/14/26 by CC
+			const themesVersion = "0.5.329"; //bump on every theme edit -- left-panel tooltips appear below the icon row instead of off to the right, 7/16/26 by CC
 
 			var options = {
 				whereToAppend: undefined,
@@ -1145,6 +1145,14 @@ function chatUserInterface (userOptions) { //5/2/26 by Claude + DW -- classic th
 				spanTimestamp.append (aTimestamp);
 				divTweetHeader.append (spanAuthor);
 				divTweetHeader.append (spanTimestamp);
+				if (item.feedUrl !== undefined) { //7/16/26 by CC -- a feed icon after the time, linked to the author's feed
+					const spanFeedIcon = $('<span class="spanFeedIcon"></span>');
+					spanFeedIcon.text (String.fromCharCode (0x00B7)); //middle dot -- the space after it comes from the icon's margin, so it matches the flex gap before it
+					const aFeedIcon = $('<a class="aFeedIcon" target="_blank"><i class="fas fa-rss"></i></a>').attr ("href", item.feedUrl);
+					addToolTip (aFeedIcon, author + "'s " + appConsts.productNameForDisplay + " feed", "bottom");
+					spanFeedIcon.append (aFeedIcon);
+					divTweetHeader.append (spanFeedIcon);
+					}
 
 				const divItemMenu = $('<div class="divContextMenu divItemMenu"></div>');
 				const buttonItemMenu = $('<button class="buttonItemMenu" title="More"><i class="fas fa-ellipsis-v"></i></button>');
@@ -1904,7 +1912,7 @@ function chatUserInterface (userOptions) { //5/2/26 by Claude + DW -- classic th
 					const spanIconLabel = $('<span class="spanIconLabel"></span>').text ((item.title !== undefined) ? item.title : item.name); //7/9/26 by CC -- the panel look: each icon carries a short label. 7/10/26 by CC -- #168: the label comes from the icon rec's own title field now, not a theme-side mapping
 					divIcon.append (spanIconLabel);
 					if (item.tooltip !== undefined) {
-						addToolTip (divIcon, item.tooltip, "right");
+						addToolTip (divIcon, item.tooltip, "bottom"); //7/16/26 by CC -- was "right", which floated the tip out over the timeline; below the row it stays with the icon and its word
 						}
 					divIcon.on ("click", function (ev) {
 						if (item.enabled !== true) { //disabled icons ignore clicks

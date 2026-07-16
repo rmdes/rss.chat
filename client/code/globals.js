@@ -1,5 +1,5 @@
 const appConsts = {
-	version: "0.6.5", //7/11/26 by DW
+	version: "0.6.6", //7/16/26 by DW
 	
 	productName: settingsFromServer.productName,
 	productNameForDisplay: settingsFromServer.productNameForDisplay,
@@ -68,7 +68,7 @@ const leftColumnIcons = [ //5/20/26 by DW
 		name: "home",
 		title: "Home",
 		icon: "<i class=\"fas fa-home\"></i>",
-		tooltip: "Go home where ever that is.",
+		tooltip: "Click to go to the back to the timeline.",
 		enabled: true, 
 		click: function () {
 			clickHomeButton (); //6/19/26 by DW
@@ -88,11 +88,11 @@ const leftColumnIcons = [ //5/20/26 by DW
 			globals.myChatUserInterface.editNewItem (); //5/20/26 by DW
 			}
 		},
-	{ //feed icon
+	{ //feed
 		name: "feed",
-		title: "Feed",
+		title: "Your feed",
 		icon: "<i class=\"fas fa-rss\"></i>",
-		tooltip: "View the feed for this post.",
+		tooltip: "View your " + appConsts.productNameForDisplay + " feed.",
 		enabled: true,
 		click: function (ev) {
 			viewMyFeedCommand ();
@@ -100,9 +100,9 @@ const leftColumnIcons = [ //5/20/26 by DW
 		},
 	{ //view data
 		name: "data",
-		title: "Data",
+		title: "Your prefs",
 		icon: "<i class=\"fa fa-code\"></i>",
-		tooltip: "View data for this item.",
+		tooltip: "View your prefs in JSON.",
 		enabled: true,
 		click: function (ev) {
 			viewPrefsData ();
