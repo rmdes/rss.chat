@@ -90,6 +90,7 @@ Every variable lives in `.env` (copy or generate from `.env.example`).
 | `RSSCHAT_DOMAIN` | required | public hostname; drives every URL the server emits |
 | `PRODUCT_NAME` | `rss.chat` | display name, confirmation email subject/copy |
 | `WHITELIST` | empty | comma-separated emails allowed to sign up; empty = open signup |
+| `BLOCKLIST` | empty | comma-separated emails barred from signing up, signing in, or posting |
 | `RSSCLOUD_ENABLED` | `true` | ping rpc.rsscloud.io on publish (outbound only) |
 | `FAVICON_URL` | `/static/vendor/favicon.ico` | tab icon; the vendored default keeps `/favicon.ico` off amazonaws.com |
 | `MYSQL_ROOT_PASSWORD` | required | MySQL root password (container init only) |
@@ -106,6 +107,30 @@ Every variable lives in `.env` (copy or generate from `.env.example`).
 | `MAILPIT_PASSWORD_HASH` | required | bcrypt hash of the above; this is what Caddy actually checks |
 | `TZ` | `UTC` | container timezone |
 
+## Who can join, who can't
+
+Two independent lists, both comma-separated emails in `.env`, both optional:
+
+- `WHITELIST` gates the door: set it and only those addresses can sign up.
+  Empty (the default) means open signup.
+- `BLOCKLIST` bars specific addresses from signing up, signing in, or posting
+  (upstream's `blockedUsersList`, server v0.5.26). Matching ignores case, so
+  `Spam@Example.com` blocks `spam@example.com`. A blocked signup gets an HTTP
+  503 and no magic-link email is sent.
+
+```bash
+# in deploy/.env
+BLOCKLIST=spammer@example.com,troll@example.net
+make restart
+```
+
+**The restart is required, and that differs from a stock install.** Upstream
+re-reads `config.json` from disk on every check, so editing that file blocks
+someone instantly. Here `config.json` is generated from `.env` at container
+start and is deliberately disposable, so `.env` is the source of truth and a
+restart is what applies it. Editing `config.json` inside the container does
+take effect immediately, but the next restart overwrites it -- use it to stop
+an abuser right now, then put the address in `.env` so it sticks.
 
 ## Mail
 

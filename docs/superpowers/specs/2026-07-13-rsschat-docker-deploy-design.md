@@ -177,6 +177,7 @@ stub is never reached.
 | `FAVICON_URL` | `/static/vendor/favicon.ico` | `urlFavicon` -- overrides upstream's amazonaws.com default |
 | `PRODUCT_NAME` | `rss.chat` | `productName`, `productNameForDisplay`, `confirmEmailSubject`, `operationToConfirm` |
 | `WHITELIST` | empty | `whitelist` array (CSV); empty = open signup |
+| `BLOCKLIST` | empty | `blockedUsersList` array (CSV); empty = nobody blocked. Both lists are omitted entirely when empty -- a present-but-empty `whitelist` would lock everyone out |
 | `RSSCLOUD_ENABLED` | `true` | `flRssCloudEnabled` |
 | `MYSQL_DATABASE/USER/PASSWORD` | rsschat/rsschat/required | `database.*` (host `mysql`) |
 | `SMTP_HOST/PORT/USERNAME/PASSWORD` | mailpit/1025/–/– | `smtpHost` etc. |

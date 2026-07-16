@@ -70,14 +70,23 @@ const config = {
 		}
 	};
 
-const whitelist = optional ("WHITELIST", "");
-const whitelistArray = whitelist.split (",").map (function (s) {
-	return (s.trim ());
-	}).filter (function (s) {
-	return (s.length > 0);
-	});
-if (whitelistArray.length > 0) {
-	config.whitelist = whitelistArray;
+function csvList (name) { //"a@b.com, c@d.com" -> ["a@b.com", "c@d.com"]
+	return (optional (name, "").split (",").map (function (s) {
+		return (s.trim ());
+		}).filter (function (s) {
+		return (s.length > 0);
+		}));
+	}
+
+//both lists must be absent when empty, not []: the server treats a present-but-empty
+//whitelist as "nobody may sign in", and an empty blockedUsersList is pointless noise.
+const whitelist = csvList ("WHITELIST");
+if (whitelist.length > 0) {
+	config.whitelist = whitelist;
+	}
+const blocklist = csvList ("BLOCKLIST");
+if (blocklist.length > 0) {
+	config.blockedUsersList = blocklist;
 	}
 
 console.log (JSON.stringify (config, undefined, "\t"));

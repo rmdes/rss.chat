@@ -47,6 +47,20 @@ test ("whitelist csv becomes an array", function () {
 	const result = run (Object.assign ({WHITELIST: " a@b.com, c@d.com "}, goodEnv));
 	assert.deepStrictEqual (JSON.parse (result.stdout).whitelist, ["a@b.com", "c@d.com"]);
 	});
+test ("blocklist csv becomes blockedUsersList", function () {
+	const result = run (Object.assign ({BLOCKLIST: " spam@x.com, troll@y.com "}, goodEnv));
+	assert.deepStrictEqual (JSON.parse (result.stdout).blockedUsersList, ["spam@x.com", "troll@y.com"]);
+	});
+test ("an empty blocklist stays absent", function () { //a present-but-empty list is noise
+	assert.strictEqual (JSON.parse (run (goodEnv).stdout).blockedUsersList, undefined);
+	assert.strictEqual (JSON.parse (run (Object.assign ({BLOCKLIST: " , , "}, goodEnv)).stdout).blockedUsersList, undefined);
+	});
+test ("whitelist and blocklist are independent", function () {
+	const result = run (Object.assign ({WHITELIST: "a@b.com", BLOCKLIST: "spam@x.com"}, goodEnv));
+	const config = JSON.parse (result.stdout);
+	assert.deepStrictEqual (config.whitelist, ["a@b.com"]);
+	assert.deepStrictEqual (config.blockedUsersList, ["spam@x.com"]);
+	});
 test ("rsscloud can be disabled", function () {
 	const result = run (Object.assign ({RSSCLOUD_ENABLED: "false"}, goodEnv));
 	assert.strictEqual (JSON.parse (result.stdout).flRssCloudEnabled, false);
