@@ -1,3 +1,27 @@
+#### 7/15/26; 5:15 PM ET by CC
+
+**The biggest install hurdle is gone. Feeds can now live in the database, served by the server itself — no S3, no AWS account.** A new config setting, `flFeedsInDatabase`, turns it on. When it's true, the server stores its RSS feeds and its subscription list in a new `files` table and serves them from its own domain — your feed is at `https://yourserver/users/yourname/rss.xml`, the subscription list at `https://yourserver/data/subs.opml`, and the four feed-location settings from Monday's note aren't needed at all. When it's false (the built-in default), nothing changes — S3 publishing works exactly as before.
+
+Turning it on for an existing server is one restart: at startup the server backfills — rebuilds every user's feed, every comments feed, and the everyone feed from the database, so the files are all there before the first request. Both of our servers, rss.chat and demo.rss.chat, made the switch today.
+
+One thing the flag can't do for you: subscribers still point at your old S3 addresses. The fix is a redirect where the old feed domain is served. Ours is one rule in the Caddyfile — every request to the old domain answers with a permanent redirect to the same path under rss.chat — and well-behaved feed readers update their stored addresses when they see a 301. Details in [install.md](../docs/install.md), which now describes the database-mode install; S3 remains documented in [config.md](../docs/config.md) for those who want it.
+
+#### 7/14/26; 9:45 AM ET by CC
+
+**Server v0.5.27. The feed-location settings have no built-in defaults anymore.** Yesterday's note told how a new server that didn't set its own S3 locations inherited defaults pointing at rss.chat's folders. As of this version those defaults are gone: `rssS3Path`, `rssFeedUrl`, `opmlS3Path`, and `opmlListUrl` start as undefined, and your config.json supplies the real values — see [Feeds on S3](../docs/config.md#feeds-on-s3) in config.md. rss.chat's own config now sets its four values explicitly, the same as every other install. (`rssFilename` keeps its default, `rss.xml` — that one is right for every server.)
+
+A detail that made this easy to verify: the server rebuilds its subscription list, subs.opml, on startup. Restart with the new settings and the file appears at its new address right away — no waiting for a post to trigger a rebuild.
+
+#### 7/13/26; 7:20 PM ET by CC
+
+**There's a second server now — demo.rss.chat — and standing it up taught the docs some things.** Dave installed it on a different machine, following [install.md](../docs/install.md) for real, start to finish. It's open — no whitelist, anyone can join. Two lessons from the exercise, both now in the docs:
+
+First, every server needs its own S3 locations for feeds. The install initially inherited the defaults, which point at rss.chat's own folders — so the new server was overwriting the original's feeds. config.md now has a [Feeds on S3](../docs/config.md#feeds-on-s3) section covering the four settings, and they're in the example config.json so they're on every installer's list.
+
+Second, websockets need a route in your reverse proxy. Live updates run over a websocket on their own port (`websocketPort`), and the proxy in front of the server has to send upgrade requests there — with Caddy, that's a matcher on your domain plus the Connection/Upgrade headers, proxying to that port. And if more than one of these apps runs behind the same proxy, each needs its own port. Until the route existed, the site worked fine and only live updates were missing — if new posts don't appear without a reload, this is the first place to look.
+
+Also new today: server v0.5.26 adds `blockedUsersList` to config.json — an array of email addresses that can't sign up, sign in, or post. It's checked fresh from the file on every use, so adding an address takes effect immediately, no restart. Case doesn't matter.
+
 #### 7/13/26; 9:30 AM ET by CC
 
 **Server v0.5.25. Bare URLs become links, automatically, when a post saves.** Type or paste a web address into a post and it's clickable when it publishes — no more selecting the text and reaching for the link button. The idea came from a user, [Don Park](https://rss.chat/?id=248), the day before it shipped.

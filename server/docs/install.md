@@ -7,6 +7,7 @@
 3. Inside the code folder, these are the files you need: config.json, emailtemplate.html, package.json, rssnetwork.js. You can remove the rest.
 4. Put the code folder wherever you want the server to run, on the machine that will run it.
 5. Open config.json in a text editor and replace the example values with your own. Every setting is explained in [config.md](config.md).
+	- The example config sets `"flFeedsInDatabase": true`, which means the server stores its feeds in the database and serves them itself, from your own domain. There's nothing more to set up. (The alternative, publishing feeds to Amazon S3, is covered in [config.md](config.md).)
 6. Create your database -- paste the SQL from the next section at a `mysql>` prompt.
 7. In the code folder, run `npm install`.
 8. Start the server: `node rssnetwork.js`.
@@ -63,6 +64,16 @@ create table likes (
 	primary key (screenname, itemId),
 	index itemId (itemId)
 	) character set utf8mb4 collate utf8mb4_unicode_ci;
+
+create table files (
+	path varchar (512) not null,
+	type varchar (64),
+	filecontents longtext,
+	whenCreated datetime default current_timestamp,
+	whenUpdated datetime default current_timestamp on update current_timestamp,
+	ctSaves int unsigned not null default 1,
+	primary key (path)
+	) character set utf8mb4 collate utf8mb4_unicode_ci;
 ```
 
 ### Notes on the schema
@@ -84,9 +95,29 @@ create table likes (
 
 **likes** -- one row per (user, item) like. The primary key `(screenname, itemId)` makes a like idempotent (you can't like the same item twice) and the toggle a single insert or delete. There is no copy of the like data on the item row -- the item-read queries compute `ctLikes` (a count) and `flLiked` (does the current viewer have a row) on the fly, which is what the `itemId` index is for. Unlike FeedLand, which keeps a denormalized list of likers stamped on each item, this is the single source of truth.
 
+**files** -- the feeds and the subscription list, when `flFeedsInDatabase` is on. One row per file: `path` is the request path the file is served at (`/users/dave/rss.xml`), `filecontents` is the file, `type` is its content type, and `ctSaves` counts how many times it's been rebuilt. Paths are stored lowercase, so feed URLs are case-insensitive. If you serve feeds from S3 instead, this table simply stays empty.
+
 ### Upgrading an existing database
 
-The block above is for a fresh install. If you already have a running server from an earlier version, add the `likes` table on its own:
+The block above is for a fresh install. If you already have a running server from an earlier version, add the new tables on their own.
+
+The `files` table, for serving feeds from the database:
+
+```sql
+create table files (
+	path varchar (512) not null,
+	type varchar (64),
+	filecontents longtext,
+	whenCreated datetime default current_timestamp,
+	whenUpdated datetime default current_timestamp on update current_timestamp,
+	ctSaves int unsigned not null default 1,
+	primary key (path)
+	) character set utf8mb4 collate utf8mb4_unicode_ci;
+```
+
+Then add `"flFeedsInDatabase": true` to your config.json, remove the four feed-location settings (`rssS3Path`, `rssFeedUrl`, `opmlS3Path`, `opmlListUrl`), and restart. The server rebuilds every feed into the database at startup, so the files are all there before the first request. Anyone subscribed to your feeds at the old S3 addresses will need a redirect from the old location to the new one -- a single permanent-redirect rule on the old feed domain, pointing each path at the same path on your server, moves every subscriber over.
+
+The `likes` table:
 
 ```sql
 create table likes (
@@ -106,7 +137,7 @@ alter table users add column ctHits int not null default 0, add column ctHitsTod
 
 ## An AI can do this install
 
-These instructions work for people, and they work for AIs. If you use Claude Code or a similar agent, give it shell access on the machine that will run the server, point it at this document, and tell it to do the install. It can set up Node and MySQL, create the database from the schema above, fill in config.json, and start the server -- checking with you only on the questions that are genuinely yours to answer: your domain name, your database name, your AWS credentials.
+These instructions work for people, and they work for AIs. If you use Claude Code or a similar agent, give it shell access on the machine that will run the server, point it at this document, and tell it to do the install. It can set up Node and MySQL, create the database from the schema above, fill in config.json, and start the server -- checking with you only on the questions that are genuinely yours to answer: your domain name and your database name.
 
 The instructions above read the same either way. Follow them yourself, or read along while your AI does.
 

@@ -1,4 +1,4 @@
-var myVersion = "0.5.25", myProductName = "rss.network";
+var myVersion = "0.5.29", myProductName = "rss.network";
 
 const daveappserver = require ("daveappserver");
 const rss = require ("daverss");
@@ -36,12 +36,12 @@ var config = {
 	rssCloudProtocol:  "http-post",
 	
 	urlWebsocketServerForClient: "",
-	rssS3Path: "/scripting/rssnetwork/users/", //4/22/26 by DW
-	rssFeedUrl: "https://users.rss.network/",
-	rssFilename: "rss.xml",
 	
-	opmlS3Path: "/scripting/rssnetwork/data/subs.opml",
-	opmlListUrl: "https://data.rss.network/subs.opml",
+	rssS3Path: undefined, //7/14/26 by DW
+	rssFeedUrl: undefined,
+	rssFilename: "rss.xml",
+	opmlS3Path: undefined,
+	opmlListUrl: undefined,
 	
 	urlFeedlandServer: "https://feedland.social/",
 	urlFeedlandRedirect: "https://feedland.social/?item=",
@@ -50,7 +50,11 @@ var config = {
 	
 	urlExtrasOpml: "https://feedland.social/opml?screenname=davewiner&catname=davesources",
 	
-	robotsText: "User-agent: *\nDisallow: /getitembyguid\nDisallow: /getiteminfo\n" //7/1/26 by DW
+	robotsText: "User-agent: *\nDisallow: /getitembyguid\nDisallow: /getiteminfo\n", //7/1/26 by DW
+	
+	urlFavicon: "//s3.amazonaws.com/scripting.com/favicon.ico", //7/14/26 by DW
+	
+	flFeedsInDatabase: false, //7/15/26 by DW
 	};
 
 //misc stuff
@@ -120,6 +124,53 @@ var config = {
 				newWindow: false
 				});
 			return (theLinker.link (htmltext));
+			}
+		}
+	function isEmailBlocked (emailaddress) { //7/13/26 by CC
+		if (emailaddress === undefined) {
+			return (false);
+			}
+		else {
+			try {
+				const jstruct = JSON.parse (fs.readFileSync ("config.json"));
+				if (jstruct.blockedUsersList === undefined) { //no blocklist
+					return (false);
+					}
+				else {
+					const emailLower = utils.stringLower (emailaddress);
+					var flBlocked = false;
+					jstruct.blockedUsersList.forEach (function (blockedEmail) {
+						if (utils.stringLower (blockedEmail) === emailLower) {
+							flBlocked = true;
+							}
+						});
+					return (flBlocked);
+					}
+				}
+			catch (err) {
+				console.log ("isEmailBlocked: err.message == " + err.message);
+				return (false);
+				}
+			}
+		}
+	function userIsBlocked (emailaddress, callback) {
+		if (isEmailBlocked (emailaddress)) {
+			const message = "Can't send the confirming email because the user is not authorized.";
+			callback ({message});
+			return (true); //consumed
+			}
+		else {
+			return (false); //not consumed
+			}
+		}
+	function initDatabaseUrls () { //7/15/26 by DW
+		if (config.flFeedsInDatabase) { //7/15/26 by CC
+			if (config.rssFeedUrl === undefined) { //7/15/26 by CC -- feeds served from our domain
+				config.rssFeedUrl = config.urlServerForClient + "users/";
+				}
+			if (config.opmlListUrl === undefined) {
+				config.opmlListUrl = config.urlServerForClient + "data/subs.opml";
+				}
 			}
 		}
 //sql code
@@ -525,6 +576,54 @@ var config = {
 				}
 			});
 		}
+	function backfillFeeds () { //7/15/26 by CC
+		getAllScreennames (function (err, theNames) {
+			if (err) {
+				console.log ("backfillFeeds: err.message == " + err.message);
+				}
+			else {
+				console.log ("backfillFeeds: publishing " + theNames.length + " user feeds.");
+				theNames.forEach (function (screenname) {
+					getUserInfoByScreenname (screenname, function (err, userRec) {
+						if (err) {
+							console.log ("backfillFeeds: screenname == " + screenname + ", err.message == " + err.message);
+							}
+						else {
+							buildFeedForUser (userRec, function (err, xmltext) {
+								if (err) {
+									console.log ("backfillFeeds: screenname == " + screenname + ", err.message == " + err.message);
+									}
+								else {
+									const relpath = screenname + "/" + config.rssFilename;
+									publishFeedFile (relpath, xmltext, function (err, data) {
+										if (err) {
+											console.log ("backfillFeeds: screenname == " + screenname + ", err.message == " + err.message);
+											}
+										});
+									}
+								});
+							}
+						});
+					});
+				
+				const everyoneFeedUrl = config.rssFeedUrl + config.rssFilename;
+				buildFeedForEveryone (everyoneFeedUrl, function (err, xmltext) {
+					if (err) {
+						console.log ("backfillFeeds: err.message == " + err.message);
+						}
+					else {
+						publishFeedFile (config.rssFilename, xmltext, function (err, data) {
+							if (err) {
+								console.log ("backfillFeeds: err.message == " + err.message);
+								}
+							});
+						}
+					});
+				
+				backfillCommentsFeeds ();
+				}
+			});
+		}
 	function getFeedUrl (screenname) { //4/22/26 by DW
 		const relpath = screenname + "/" + config.rssFilename;
 		const feedUrl = config.rssFeedUrl + relpath;
@@ -555,8 +654,7 @@ var config = {
 				}
 			else {
 				const relpath = parentItem.screenname + "/comments/" + idPost + ".xml";
-				const s3path = config.rssS3Path + relpath;
-				s3.newObject (s3path, xmltext, "text/xml", "public-read", function (err, data) {
+				publishFeedFile (relpath, xmltext, function (err, data) {
 					if (err) {
 						console.log ("publishCommentsFeed: config.rssS3Path == " + config.rssS3Path + ", err.message == " + err.message);
 						if (callback !== undefined) {
@@ -768,8 +866,8 @@ var config = {
 				}
 			else {
 				const relpath = userRec.screenname + "/" + config.rssFilename;
-				const s3path = config.rssS3Path + relpath;
-				s3.newObject (s3path, xmltext, "text/xml", "public-read", function (err, data) {
+				console.log ("updateFeedsOnS3: relpath == " + relpath + ", feedUrl == " + config.rssFeedUrl + relpath); //7/13/26 by DW
+				publishFeedFile (relpath, xmltext, function (err, data) {
 					if (err) {
 						console.log ("updateFeedsOnS3: config.rssS3Path == " + config.rssS3Path + ", err.message == " + err.message);
 						callback (err);
@@ -785,8 +883,7 @@ var config = {
 								}
 							else {
 								const relpath = config.rssFilename;
-								const s3path = config.rssS3Path + relpath;
-								s3.newObject (s3path, xmltext, "text/xml", "public-read", function (err, data) {
+								publishFeedFile (relpath, xmltext, function (err, data) {
 									if (err) {
 										console.log ("updateFeedsOnS3: config.rssS3Path == " + config.rssS3Path + ", err.message == " + err.message);
 										}
@@ -839,11 +936,20 @@ var config = {
 				console.log ("updateSubscriptionListOnS3: err.message == " + err.message);
 				}
 			else {
-				s3.newObject (config.opmlS3Path, opmltext, "text/xml", "public-read", function (err, data) {
-					if (err) {
-						console.log ("updateSubscriptionListOnS3: config.opmlS3Path == " + config.opmlS3Path + ", err.message == " + err.message);
-						}
-					});
+				if (config.flFeedsInDatabase) {
+					writeDatabaseFile ("/data/subs.opml", "text/xml", opmltext, function (err, data) {
+						if (err) {
+							console.log ("updateSubscriptionListOnS3: err.message == " + err.message);
+							}
+						});
+					}
+				else {
+					s3.newObject (config.opmlS3Path, opmltext, "text/xml", "public-read", function (err, data) {
+						if (err) {
+							console.log ("updateSubscriptionListOnS3: config.opmlS3Path == " + config.opmlS3Path + ", err.message == " + err.message);
+							}
+						});
+					}
 				}
 			});
 		}
@@ -861,7 +967,6 @@ var config = {
 			return (undefined);
 			}
 		}
-	
 	function getUserData (screenname, callback) {
 		var theData = { //6/13/26 by DW
 			feedUrlEveryone: config.rssFeedUrl + config.rssFilename, //6/5/26 by DW
@@ -901,7 +1006,6 @@ var config = {
 				})
 			}
 		}
-	
 	function getUserFeed (screenname, callback) {
 		getUserInfoByScreenname (screenname, function (err, userRec) {
 			if (err) {
@@ -927,130 +1031,141 @@ var config = {
 			});
 		}
 	function newPost (email, code, jsontext, callback) {
-		var postRec;
-		try {
-			postRec = JSON.parse (jsontext)
-			}
-		catch (err) {
-			const message = "Can't add the post because the postRec doesn't parse properly.";
+		if (isEmailBlocked (email)) { //7/13/26 by DW
+			const message = "Can't add the post because the user is not authorized.";
 			callback ({message});
-			return;
 			}
-		getUserInfoByEmail (email, function (err, userRec) {
-			if (err) {
-				callback (err);
+		else {
+			var postRec;
+			try {
+				postRec = JSON.parse (jsontext)
 				}
-			else {
-				if (userRec === undefined) {
-					const message = "Can't add the post because there is no user with email \"" + email + "\".";
-					console.log ("newPost: " + message);
-					callback ({message});
+			catch (err) {
+				const message = "Can't add the post because the postRec doesn't parse properly.";
+				callback ({message});
+				return;
+				}
+			getUserInfoByEmail (email, function (err, userRec) {
+				if (err) {
+					callback (err);
 					}
 				else {
-					if (userRec.emailSecret !== code) {
-						const message = "Can't add the post because the authorization code is not correct.";
+					if (userRec === undefined) {
+						const message = "Can't add the post because there is no user with email \"" + email + "\".";
+						console.log ("newPost: " + message);
 						callback ({message});
 						}
 					else {
-						const theNewItem = {
-							title: postRec.title,
-							description: linkifyUrls (postRec.description), //7/13/26 by CC -- #175
-							markdowntext: postRec.markdowntext, //6/3/26 by DW
-							inReplyTo: postRec.inReplyTo,
-							feedUrl: getFeedUrl (userRec.screenname),
-							pubDate: new Date (),
-							author: userRec.screenname, //5/4/26 by DW
-							};
-						addItem (theNewItem, function (err, itemRec) {
-							if (err) {
-								callback (err);
-								}
-							else {
-								updateFeedsOnS3 (userRec, function (err, data) {
-									if (err) {
-										callback (err);
-										}
-									else {
-										itemRec.guid = getPermalinkUrl (itemRec); //6/20/26 by DW
-										callback (undefined, itemRec);
-										}
-									});
-								updateReplyFeedsOnS3 (itemRec.inReplyTo, userRec.screenname); //7/8/26 by CC
-								}
-							});
-						}
-					}
-				}
-			});
-		}
-	function updatePost (email, code, jsontext, callback) { //5/21/26 by DW
-		var postRec;
-		try {
-			postRec = JSON.parse (jsontext)
-			}
-		catch (err) {
-			const message = "Can't update the post because the postRec doesn't parse properly.";
-			callback ({message});
-			return;
-			}
-		getUserInfoByEmail (email, function (err, userRec) {
-			if (err) {
-				callback (err);
-				}
-			else {
-				if (userRec === undefined) {
-					const message = "Can't update the post because there is no user with email \"" + email + "\".";
-					callback ({message});
-					}
-				else {
-					if (userRec.emailSecret !== code) {
-						const message = "Can't update the post because the authorization code is not correct.";
-						console.log ("updatePost: " + message); 
-						callback ({message});
-						}
-					else {
-						getItemById (userRec.screenname, postRec.id, function (err, existingItemRec) {
-							if (err) {
-								callback (err);
-								}
-							else {
-								if (existingItemRec === undefined) {
-									const message = "Can't update the post because there is no item with id " + postRec.id + ".";
-									callback ({message});
+						if (userRec.emailSecret !== code) {
+							const message = "Can't add the post because the authorization code is not correct.";
+							callback ({message});
+							}
+						else {
+							const theNewItem = {
+								title: postRec.title,
+								description: linkifyUrls (postRec.description), //7/13/26 by CC -- #175
+								markdowntext: postRec.markdowntext, //6/3/26 by DW
+								inReplyTo: postRec.inReplyTo,
+								feedUrl: getFeedUrl (userRec.screenname),
+								pubDate: new Date (),
+								author: userRec.screenname, //5/4/26 by DW
+								};
+							addItem (theNewItem, function (err, itemRec) {
+								if (err) {
+									callback (err);
 									}
 								else {
-									if (existingItemRec.author !== userRec.screenname) {
-										const message = "Can't update the post because it was written by a different user.";
+									updateFeedsOnS3 (userRec, function (err, data) {
+										if (err) {
+											callback (err);
+											}
+										else {
+											itemRec.guid = getPermalinkUrl (itemRec); //6/20/26 by DW
+											callback (undefined, itemRec);
+											}
+										});
+									updateReplyFeedsOnS3 (itemRec.inReplyTo, userRec.screenname); //7/8/26 by CC
+									}
+								});
+							}
+						}
+					}
+				});
+			}
+		}
+	function updatePost (email, code, jsontext, callback) { //5/21/26 by DW
+		if (isEmailBlocked (email)) { //7/13/26 by DW
+			const message = "Can't update the post because the user is not authorized.";
+			callback ({message});
+			}
+		else {
+			var postRec;
+			try {
+				postRec = JSON.parse (jsontext)
+				}
+			catch (err) {
+				const message = "Can't update the post because the postRec doesn't parse properly.";
+				callback ({message});
+				return;
+				}
+			getUserInfoByEmail (email, function (err, userRec) {
+				if (err) {
+					callback (err);
+					}
+				else {
+					if (userRec === undefined) {
+						const message = "Can't update the post because there is no user with email \"" + email + "\".";
+						callback ({message});
+						}
+					else {
+						if (userRec.emailSecret !== code) {
+							const message = "Can't update the post because the authorization code is not correct.";
+							console.log ("updatePost: " + message); 
+							callback ({message});
+							}
+						else {
+							getItemById (userRec.screenname, postRec.id, function (err, existingItemRec) {
+								if (err) {
+									callback (err);
+									}
+								else {
+									if (existingItemRec === undefined) {
+										const message = "Can't update the post because there is no item with id " + postRec.id + ".";
 										callback ({message});
 										}
 									else {
-										postRec.description = linkifyUrls (postRec.description); //7/13/26 by CC -- #175
-										updateItem (postRec, function (err, itemRec) {
-											if (err) {
-												callback (err);
-												}
-											else {
-												updateFeedsOnS3 (userRec, function (err, data) {
-													if (err) {
-														callback (err);
-														}
-													else {
-														callback (undefined, itemRec);
-														}
-													});
-												updateReplyFeedsOnS3 (existingItemRec.inReplyToNum, userRec.screenname);
-												}
-											});
+										if (existingItemRec.author !== userRec.screenname) {
+											const message = "Can't update the post because it was written by a different user.";
+											callback ({message});
+											}
+										else {
+											postRec.description = linkifyUrls (postRec.description); //7/13/26 by CC -- #175
+											updateItem (postRec, function (err, itemRec) {
+												if (err) {
+													callback (err);
+													}
+												else {
+													updateFeedsOnS3 (userRec, function (err, data) {
+														if (err) {
+															callback (err);
+															}
+														else {
+															callback (undefined, itemRec);
+															}
+														});
+													updateReplyFeedsOnS3 (existingItemRec.inReplyToNum, userRec.screenname);
+													}
+												});
+											}
 										}
 									}
-								}
-							});
+								});
+							}
 						}
 					}
-				}
-			});
+				});
+			}
 		}
-	
 	function validateUser (email, code, what, callback) { //6/12/26 by DW
 		getUserInfoByEmail (email, function (err, userRec) {
 			if (err) {
@@ -1140,7 +1255,6 @@ var config = {
 				}
 			});
 		}
-	
 	function bumpUserHits (screenname, callback) { //7/1/26 by CC
 		const sqltext = "update users set ctHits = ctHits + 1, ctHitsToday = case when date (whenLastHit) = date (now ()) then ctHitsToday + 1 else 1 end, whenLastHit = now () where screenname = " + davesql.encode (screenname) + ";";
 		davesql.runSqltext (sqltext, function (err) {
@@ -1188,28 +1302,33 @@ var config = {
 			});
 		}
 	function checkWhitelist (emailaddress, callback) { //6/9/26 by DW
-		fs.readFile ("config.json", function (err, jsontext) {
-			var flWhitelisted = false; 
-			if (err) {
-				console.log ("checkWhitelist: err.message == " + err.message);
-				}
-			else {
-				var jstruct;
-				try {
-					jstruct = JSON.parse (jsontext);
-					if (jstruct.whitelist === undefined) { //no whitelist
-						flWhitelisted = true;
-						}
-					else {
-						flWhitelisted = jstruct.whitelist.includes (emailaddress);
-						}
-					}
-				catch (err) {
+		if (isEmailBlocked (emailaddress)) { //7/13/26 by CC
+			callback (undefined, {flWhitelisted: false});
+			}
+		else {
+			fs.readFile ("config.json", function (err, jsontext) {
+				var flWhitelisted = false; 
+				if (err) {
 					console.log ("checkWhitelist: err.message == " + err.message);
 					}
-				}
-			callback (undefined, {flWhitelisted});
-			});
+				else {
+					var jstruct;
+					try {
+						jstruct = JSON.parse (jsontext);
+						if (jstruct.whitelist === undefined) { //no whitelist
+							flWhitelisted = true;
+							}
+						else {
+							flWhitelisted = jstruct.whitelist.includes (emailaddress);
+							}
+						}
+					catch (err) {
+						console.log ("checkWhitelist: err.message == " + err.message);
+						}
+					}
+				callback (undefined, {flWhitelisted});
+				});
+			}
 		}
 	function getLikersList (id, callback) { //6/25/26 by CC 
 		const sqltext = "select screenname from likes where itemId = " + davesql.encode (id) + " order by whenCreated;";
@@ -1280,7 +1399,6 @@ var config = {
 				}
 			});
 		}
-	
 //like -- 6/24/26 by DW
 	function addToLikesTable (screenname, itemId, callback) {
 		const likesRec = {
@@ -1379,6 +1497,64 @@ var config = {
 		}
 	
 	
+//database files -- 7/15/26 by CC
+	function writeDatabaseFile (path, type, filecontents, callback) {
+		function getEncodedValues (jstruct) {
+			var values = davesql.encodeValues (jstruct);
+			values = utils.stringMid (values, 1, values.length - 1); //remove extraneous semicolon at the end
+			return (values);
+			}
+		const now = new Date ();
+		const fileRec = {
+			path: path.toLowerCase (), //served via theRequest.lowerpath, so stored lowercase
+			type,
+			filecontents,
+			whenCreated: now,
+			whenUpdated: now,
+			ctSaves: 1
+			};
+		const onDuplicatePart = "on duplicate key update type = values (type), filecontents = values (filecontents), whenUpdated = " + davesql.encode (now) + ", ctSaves = ctSaves + 1";
+		const sqltext = "insert into files " + getEncodedValues (fileRec) + " " + onDuplicatePart + ";";
+		davesql.runSqltext (sqltext, function (err, result) {
+			if (err) {
+				if (callback !== undefined) {
+					callback (err);
+					}
+				}
+			else {
+				if (callback !== undefined) {
+					callback (undefined, fileRec);
+					}
+				}
+			});
+		}
+	function readDatabaseFile (path, callback) {
+		const sqltext = "select * from files where path = " + davesql.encode (path) + ";";
+		davesql.runSqltext (sqltext, function (err, result) {
+			if (err) {
+				callback (err);
+				}
+			else {
+				if (result.length == 0) {
+					const message = "Can't serve the file " + path + " because there is no file with that path.";
+					const code = 404;
+					callback ({message, code});
+					}
+				else {
+					callback (undefined, result [0]);
+					}
+				}
+			});
+		}
+	function publishFeedFile (relpath, xmltext, callback) { //the one place that decides database vs s3
+		if (config.flFeedsInDatabase) {
+			writeDatabaseFile ("/users/" + relpath, "text/xml", xmltext, callback);
+			}
+		else {
+			const s3path = config.rssS3Path + relpath;
+			s3.newObject (s3path, xmltext, "text/xml", "public-read", callback);
+			}
+		}
 //callbacks for daveappserver
 	function findUserWithScreenname (screenname, callback) {
 		getUserInfoByScreenname (screenname, function (err, userInfo) {
@@ -1580,8 +1756,26 @@ function handleHttpRequest (theRequest) {
 		case "/getiteminfo": //7/9/26 by CC
 			getItemInfo (params.screenname, params.guid, params.id, params.format, httpReturn);
 			return (true);
+		case "/sendconfirmingemail": case "/createnewuser": //7/13/26 by CC
+			return (userIsBlocked (params.email, httpReturn)); //if block, we prevent daveappserver from doing anything
+		case "/favicon.ico": //7/14/26 by DW
+			returnRedirect (config.urlFavicon);
+			return (true);
 		}
 	
+	if (config.flFeedsInDatabase) { //7/15/26 by CC -- serve from database
+		if (utils.beginsWith (theRequest.lowerpath, "/users/") || utils.beginsWith (theRequest.lowerpath, "/data/")) {
+			readDatabaseFile (theRequest.lowerpath, function (err, fileRec) {
+				if (err) {
+					theRequest.httpReturn (404, "text/plain", err.message);
+					}
+				else {
+					theRequest.httpReturn (200, fileRec.type, fileRec.filecontents);
+					}
+				});
+			return (true);
+			}
+		}
 	
 	return (false); // not consumed
 	}
@@ -1594,6 +1788,8 @@ function startup () {
 		}
 	utils.readConfig ("config.json", config, function () {
 		davesql.start (config.database, function () {
+			initDatabaseUrls (); //7/15/26 by DW
+			
 			var options = {
 				urlServerForClient: config.urlServerForClient,
 				flWebsocketEnabled: config.flWebsocketEnabled, 
@@ -1612,6 +1808,7 @@ function startup () {
 					config [x] = appConfig [x];
 					}
 				updateSubscriptionListOnS3 (); //6/24/26 by DW
+				backfillFeeds (); //7/15/26 by DW
 				utils.runEveryMinute (everyMinute);
 				setInterval (everySecond, 1000); 
 				getMysqlVersion (function (err, mysqlVersion) { //11/18/23 by DW, 2/1/24; 11:22:16 AM by DW

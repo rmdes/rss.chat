@@ -1,24 +1,21 @@
 {
 	"note": "Example configuration for an rss.chat server. Copy this to your app folder as config.json and replace the values with your own.",
 	"productName": "rssChat",
-	"productNameForDisplay": "birdsong.chat",
-	"urlServerHomePageSource": "http://scripting.com/code/rsschat/index.html",
-	"myDomain": "birdsong.chat",
-	"urlServerForClient": "https://birdsong.chat/",
-	"urlServerForEmail": "https://birdsong.chat/",
+	"productNameForDisplay": "myserver.chat",
+	"urlServerHomePageSource": "https://code.scripting.com/rsschat/index.html",
+	"myDomain": "myserver.chat",
+	"urlServerForClient": "https://myserver.chat/",
+	"urlServerForEmail": "https://myserver.chat/",
 	"flWebsocketEnabled": true,
 	"websocketPort": 1462,
 	"flSecureWebsocket": true,
-	"urlWebsocketServerForClient": "wss://birdsong.chat/",
+	"urlWebsocketServerForClient": "wss://myserver.chat/",
 	"prefsPath": "prefs.json",
 	"dataPath": "data/",
-	"mailSender": "admin@birdsong.chat",
-	"confirmEmailSubject": "birdsong.chat confirmation",
-	"operationToConfirm": "sign in to birdsong.chat",
-	"whitelist": [
-		"admin@birdsong.chat",
-		"friend@example.com"
-		],
+	"flFeedsInDatabase": true,
+	"mailSender": "admin@myserver.chat",
+	"confirmEmailSubject": "myserver.chat confirmation",
+	"operationToConfirm": "sign in to myserver.chat",
 	"database": {
 		"host": "your-cluster.db.ondigitalocean.com",
 		"port": 25060,
@@ -26,7 +23,7 @@
 		"password": "your-db-password",
 		"charset": "utf8mb4",
 		"connectionLimit": 100,
-		"database": "birdsong",
+		"database": "myRssChat",
 		"debug": false
 		}
 	}

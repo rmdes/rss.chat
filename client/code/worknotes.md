@@ -1,3 +1,7 @@
+#### 7/14/26; 8:30 PM ET by CC
+
+**You can select text in the timeline now.** Until today the text of a post couldn't be selected — to copy a phrase from your own post you had to open the editor, and for someone else's post there was no way at all. Now post text selects like any text on any page: drag across it, copy it, quote it. The one wrinkle worth solving: clicking a long post is how you expand and collapse it, and a drag-select ends with a click — so the click that finishes a selection is ignored, and plain clicks still open and close the post the way they always have. (Theme v0.5.322.)
+
 #### 7/13/26; 10:15 AM ET by CC
 
 **Links show up the moment you save them.** The server now turns bare URLs into links when a post saves (the story is in the [server worknotes](https://github.com/scripting/rss.chat/blob/main/server/code/worknotes.md)), and the client keeps up: when you update a post, the copy in the timeline repaints from what the server actually saved, so the new links are clickable immediately — no reload needed. (Theme v0.5.321.)

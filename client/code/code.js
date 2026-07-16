@@ -374,123 +374,127 @@
 		}
 	
 	
-
-function everySecond () {
-	if (flPrefsChanged) { //5/16/26 by DW
-		flPrefsChanged = false;
-		savePrefs ();
+//startup support -- 7/13/26 by DW
+	function simpleInits () { //7/13/26 by DW -- startup things that don't need to be waited for
+		$(".divMenuProductName").text (settingsFromServer.productNameForDisplay); //7/13/26 by DW
+		hitCounter (); 
 		}
-	enableIcons (); //6/1/26 by DW
-	enableMenuItems (); //6/10/26 by DW
-	}
-function everyMinute () {
-	ageoutIdsSeen () ;
-	$(".spUpdateableTime").trigger ("update"); //5/6/26 by DW
-	}
-
-function startPackages (callback) {
-	
-	function completeStartPackages () { //5/22/26 by DW
+	function everySecond () {
+		if (flPrefsChanged) { //5/16/26 by DW
+			flPrefsChanged = false;
+			savePrefs ();
+			}
+		enableIcons (); //6/1/26 by DW
+		enableMenuItems (); //6/10/26 by DW
+		}
+	function everyMinute () {
+		ageoutIdsSeen () ;
+		$(".spUpdateableTime").trigger ("update"); //5/6/26 by DW
+		}
+	function startPackages (callback) {
 		
-		var storyGuid = undefined; //6/19/26 by DW
-		var params = getAllUrlParams ();
-		console.log ("startPackages: params == " + jsonStringify (params));
-		if (params.id !== undefined) {
-			storyGuid = getPermalinkUrl (params.id);
+		function completeStartPackages () { //5/22/26 by DW
+			
+			var storyGuid = undefined; //6/19/26 by DW
+			var params = getAllUrlParams ();
+			console.log ("startPackages: params == " + jsonStringify (params));
+			if (params.id !== undefined) {
+				storyGuid = getPermalinkUrl (params.id);
+				}
+			
+			const chatOptions = {
+				whereToAppend: $(".divChatContainer"),
+				iconBar: leftColumnIcons, //5/20/26 by DW
+				itemIconBar: insideItemIcons, //5/22/26 by DW
+				placeholderSignedIn: appPrefs.placeholderSignedIn, //5/24/26 by DW
+				placeholderSignedOut: appPrefs.placeholderSignedOut,
+				placeholderReply: appPrefs.placeholderReply,
+				itemSelectedCallback, //6/1/26 by DW
+				titleTooltip: "Click to add an optional title.", //6/7/26 by DW
+				timelineItemMenu, //6/10/26 by DW
+				editorMenu, //6/10/26 by DW
+				avatarClickedCallback, //6/15/26 by DW
+				storyGuid, //6/19/26 by DW
+				profileName: params.screenname, //6/26/26 by DW
+				idLastMessageRead: appPrefs.idLastMessageRead, //6/27/26 by DW
+				itemSeenCallback: setLastMessageRead, //7/2/26 by DW -- #129: a post that's been on screen is read
+				};
+			globals.myChatUserInterface = new chatUserInterface (chatOptions);
+			globals.myChatUserInterface.applyPrefs (); //5/19/26 by DW
+			
+			const socketOptions = {
+				urlFeedlandSocket:  appConsts.urlSocketServer, //6/24/26 by DW
+				newItemCallback: socketNewItemCallback, //4/20/26 by DW
+				updatedItemCallback: socketUpdatedItemCallback,
+				}
+			globals.myFeedlandSocket = new feedlandSocket (socketOptions); 
+			
+			window.addEventListener ("popstate", function (ev) {
+				const params = getAllUrlParams ();
+				switch (true) {
+					case (params.screenname !== undefined): 
+						globals.myChatUserInterface.viewProfile (params.screenname);
+						break;
+					case (params.id !== undefined): 
+						globals.myChatUserInterface.viewStory (getPermalinkUrl (params.id));
+						break;
+					default: 
+						globals.myChatUserInterface.viewTimeline ();
+						break
+					}
+				});
+			
+			callback ();
 			}
 		
-		const chatOptions = {
-			whereToAppend: $(".divChatContainer"),
-			iconBar: leftColumnIcons, //5/20/26 by DW
-			itemIconBar: insideItemIcons, //5/22/26 by DW
-			placeholderSignedIn: appPrefs.placeholderSignedIn, //5/24/26 by DW
-			placeholderSignedOut: appPrefs.placeholderSignedOut,
-			placeholderReply: appPrefs.placeholderReply,
-			itemSelectedCallback, //6/1/26 by DW
-			titleTooltip: "Click to add an optional title.", //6/7/26 by DW
-			timelineItemMenu, //6/10/26 by DW
-			editorMenu, //6/10/26 by DW
-			avatarClickedCallback, //6/15/26 by DW
-			storyGuid, //6/19/26 by DW
-			profileName: params.screenname, //6/26/26 by DW
-			idLastMessageRead: appPrefs.idLastMessageRead, //6/27/26 by DW
-			itemSeenCallback: setLastMessageRead, //7/2/26 by DW -- #129: a post that's been on screen is read
+		const rssNetOptions = {
+			serverAddress: appConsts.urlServer,
 			};
-		globals.myChatUserInterface = new chatUserInterface (chatOptions);
-		globals.myChatUserInterface.applyPrefs (); //5/19/26 by DW
+		globals.myRssNetwork = new rssNetworkServer (rssNetOptions);
 		
-		const socketOptions = {
-			urlFeedlandSocket:  appConsts.urlSocketServer, //6/24/26 by DW
-			newItemCallback: socketNewItemCallback, //4/20/26 by DW
-			updatedItemCallback: socketUpdatedItemCallback,
+		if (!globals.myRssNetwork.willRedirect ()) {
+			globals.myRssNetwork.start (function (err, userData) { 
+				if (err) { //6/13/26 by DW
+					alertDialog (err.message);
+					}
+				else {
+					if (userData.prefs !== undefined) { //5/16/26 by DW
+						if (userData.prefs.userCss !== undefined) { //5/28/26 by DW -- gives the user an easy way to start over
+							if (trimWhitespace (userData.prefs.userCss).length == 0) {
+								userData.prefs.userCss = appPrefs.userCss;
+								}
+							}
+						for (var x in userData.prefs) {
+							appPrefs [x] = userData.prefs [x];
+							}
+						}
+					globals.userData = userData;
+					appPrefs.ctStarts++;
+					appPrefs.whenLastStart = new Date ();
+					if (appPrefs.lastEmail === undefined) { //5/27/26 by DW
+						appPrefs.lastEmail = getEmailAddress ();
+						}
+					fixPrefs (); //7/2/26 by DW
+					prefsChanged ();
+					updateTheme (undefined, function (err) { //5/30/26 by DW
+						if (err) {
+							alertDialog (err.message);
+							}
+						else {
+							if (appPrefs.flApplyUserCss) { //5/28/26 by DW
+								applyUserCss (appPrefs.userCss);
+								}
+							completeStartPackages (); //5/22/26 by DW
+							}
+						});
+					}
+				});
 			}
-		globals.myFeedlandSocket = new feedlandSocket (socketOptions); 
-		
-		window.addEventListener ("popstate", function (ev) {
-			const params = getAllUrlParams ();
-			switch (true) {
-				case (params.screenname !== undefined): 
-					globals.myChatUserInterface.viewProfile (params.screenname);
-					break;
-				case (params.id !== undefined): 
-					globals.myChatUserInterface.viewStory (getPermalinkUrl (params.id));
-					break;
-				default: 
-					globals.myChatUserInterface.viewTimeline ();
-					break
-				}
-			});
-		
-		callback ();
 		}
-	
-	const rssNetOptions = {
-		serverAddress: appConsts.urlServer,
-		};
-	globals.myRssNetwork = new rssNetworkServer (rssNetOptions);
-	
-	if (!globals.myRssNetwork.willRedirect ()) {
-		globals.myRssNetwork.start (function (err, userData) { 
-			if (err) { //6/13/26 by DW
-				alertDialog (err.message);
-				}
-			else {
-				if (userData.prefs !== undefined) { //5/16/26 by DW
-					if (userData.prefs.userCss !== undefined) { //5/28/26 by DW -- gives the user an easy way to start over
-						if (trimWhitespace (userData.prefs.userCss).length == 0) {
-							userData.prefs.userCss = appPrefs.userCss;
-							}
-						}
-					for (var x in userData.prefs) {
-						appPrefs [x] = userData.prefs [x];
-						}
-					}
-				globals.userData = userData;
-				appPrefs.ctStarts++;
-				appPrefs.whenLastStart = new Date ();
-				if (appPrefs.lastEmail === undefined) { //5/27/26 by DW
-					appPrefs.lastEmail = getEmailAddress ();
-					}
-				fixPrefs (); //7/2/26 by DW
-				prefsChanged ();
-				updateTheme (undefined, function (err) { //5/30/26 by DW
-					if (err) {
-						alertDialog (err.message);
-						}
-					else {
-						if (appPrefs.flApplyUserCss) { //5/28/26 by DW
-							applyUserCss (appPrefs.userCss);
-							}
-						completeStartPackages (); //5/22/26 by DW
-						}
-					});
-				}
-			});
-		}
-	}
 
 function startup () {
 	console.log ("startup -- 6/5/26 by DW");
+	simpleInits (); //7/13/26 by DW
 	startPackages (function () {
 		
 		const divThemeVersion = $(".divThemeVersion");
@@ -507,5 +511,4 @@ function startup () {
 		self.setInterval (everySecond, 1000);
 		
 		});
-	hitCounter (); //6/25/26; 12:10:31 PM by DW -- moved to top level
 	}

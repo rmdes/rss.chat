@@ -673,7 +673,6 @@
 				max-height: 200px;
 				overflow: hidden;
 				cursor: pointer;
-				user-select: none;
 				margin-bottom: 10px;
 				}
 			/* 6/27/26 by CC -- focused-item (story) view: a normal timeline item shown full-length. Same font-size/line-spacing as the timeline now (DW 6/27); only the truncation is lifted so the whole post shows. The story concept may re-emerge with its own sizing down the road. */

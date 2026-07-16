@@ -1,7 +1,7 @@
 function chatUserInterface (userOptions) { //5/2/26 by Claude + DW -- classic theme (3-col), renamed from twitter 7/2/26
 			console.log ("chatUserInterface (classic)");
 
-			const themesVersion = "0.5.321"; //bump on every theme edit -- after an update saves, the timeline repaints from what the server saved, so auto-linked URLs show without a reload, 7/13/26 by CC
+			const themesVersion = "0.5.322"; //bump on every theme edit -- timeline text is selectable now; the click that ends a drag-select no longer toggles the post open, 7/14/26 by CC
 
 			var options = {
 				whereToAppend: undefined,
@@ -917,9 +917,11 @@ function chatUserInterface (userOptions) { //5/2/26 by Claude + DW -- classic th
 				theThread.on ("click", function (event) {
 					const clickedTweetText = $(event.target).closest (".divTweetText");
 					if (clickedTweetText.length > 0) {
-						const toggleFn = clickedTweetText.data ("toggleExpand");
-						if (toggleFn !== undefined) {
-							toggleFn ();
+						if (window.getSelection ().toString ().length === 0) { //7/14/26 by CC -- the click at the end of a drag-select must not toggle the post open
+							const toggleFn = clickedTweetText.data ("toggleExpand");
+							if (toggleFn !== undefined) {
+								toggleFn ();
+								}
 							}
 						}
 					const divClickedThread = $(event.target).closest (".divThread"); //6/26/26 by CC -- the innermost item under the cursor, so clicking a reply selects the reply, not its parent thread
