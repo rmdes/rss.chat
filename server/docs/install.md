@@ -11,6 +11,8 @@
 6. Create your database -- paste the SQL from the next section at a `mysql>` prompt.
 7. In the code folder, run `npm install`.
 8. Start the server: `node rssnetwork.js`.
+	- The server listens on port 1420. If you're putting a reverse proxy like Caddy or nginx in front of it, that's the port to point it at. To use a different port, set `"port"` in config.json or the PORT environment variable.
+	- Websocket connections use their own port, 1422. If your setup uses websockets (live updates in the browser), your proxy needs to forward websocket upgrade requests there. To change it, set `"websocketPort"` in config.json.
 
 ## Create your database
 
