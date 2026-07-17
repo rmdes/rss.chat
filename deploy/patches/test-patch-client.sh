@@ -14,6 +14,10 @@ bash ./patch-client.sh "$TMP/static"
 # reader clicks them, and silently pointing upstream's docs at /static would be a bug.
 grep -q '<a href="https://source.scripting.com" target="_blank">' "$TMP/static/client/index.html" \
 	|| { echo "FAIL: outbound doc links were rewritten or dropped"; exit 1; }
+# og:image must stay absolute -- a relative one is unreliable for scrapers -- and must
+# resolve to this instance, so a shared link doesn't render Dave's CDN image as ours.
+grep -q 'content="\[%urlServerForClient%\]static/vendor/images/rssChatForOG.png"' "$TMP/static/client/index.html" \
+	|| { echo "FAIL: og:image not rewritten to a local absolute url"; exit 1; }
 grep -q '/static/vendor/includes/jquery-1.9.1.min.js' "$TMP/static/client/index.html" || { echo "FAIL: jquery not rewritten"; exit 1; }
 grep -q '/static/client/code.js' "$TMP/static/client/index.html" || { echo "FAIL: app code.js not rewritten"; exit 1; }
 grep -q '/static/vendor/overrides.js' "$TMP/static/client/index.html" || { echo "FAIL: overrides not injected"; exit 1; }
