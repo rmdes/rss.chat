@@ -1,7 +1,7 @@
 function chatUserInterface (userOptions) { //5/2/26 by Claude + DW -- classic theme (3-col), renamed from twitter 7/2/26
 			console.log ("chatUserInterface (classic)");
 
-			const themesVersion = "0.5.329"; //bump on every theme edit -- left-panel tooltips appear below the icon row instead of off to the right, 7/16/26 by CC
+			const themesVersion = "0.5.330"; //bump on every theme edit -- clicking a name shows the person's timeline, like the avatar, 7/16/26 by CC
 
 			var options = {
 				whereToAppend: undefined,
@@ -1120,12 +1120,9 @@ function chatUserInterface (userOptions) { //5/2/26 by Claude + DW -- classic th
 
 				const divTweetHeader = $('<div class="divTweetHeader"></div>');
 				const spanAuthor = $('<span class="spanAuthor"></span>');
-				if (item.feedLink !== undefined) {
-					const aAuthor = $('<a class="aAuthor"></a>').attr ("href", item.feedLink).attr ("target", "_blank").text (author);
-					spanAuthor.append (aAuthor);
-					}
-				else {
-					spanAuthor.text (author);
+				spanAuthor.text (author);
+				if (item.screenname !== undefined) { //7/16/26 by CC -- the name goes to the person's timeline, same as the avatar; their website is linked from the profile page
+					wireAvatarClick (spanAuthor, item.screenname);
 					}
 				if (item.screenname !== undefined) { //7/1/26 by CC -- #113: the @handle no longer sits on the top line; it moves into the name's hover, followed by the feed description when there is one
 					var toolTipText = "@" + item.screenname;
