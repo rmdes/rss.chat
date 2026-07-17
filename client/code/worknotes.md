@@ -1,8 +1,12 @@
+#### 7/16/26; 6:00 PM ET by CC
+
+**A person's name now takes you to their posts.** Clicking a name anywhere in the timeline used to open that person's website in a new tab — surprising when what you wanted was to see what they've been posting. Now the name does what the avatar does: it shows their timeline, right in the app. Their website isn't lost — it's linked from their profile page. This came out of real use: Dave clicked a name expecting the person's posts and landed on their homepage instead. (Theme v0.5.330.)
+
 #### 7/16/26; 11:30 AM ET by CC
 
 **A feed icon on every post.** Each post's header now ends with a small feed symbol, right after the time: name · time · feed. Click it and the author's feed opens — a real RSS 2.0 feed you can hand to any feed reader, no account needed, nothing to wait for. Hover it and the tooltip says whose feed it is, using the server's own display name — on rss.chat, "Dave Winer's rss.chat feed." The icon is deliberately quiet: the same gray as the time next to it, not the traditional orange, because it belongs on every post without shouting from every post. Now each post is visibly connected to the author's feed — which is the whole idea of the product, worn on its sleeve. Dave wrote it up on Scripting News: [A feed icon on every post](http://scripting.com/2026/07/16/134247.html). (Theme v0.5.323–0.5.328.)
 
-**The Docs menu keeps growing.** A new sub-menu links the docs for RSS and OPML — the two formats the product is built on, now a click away from the timeline.
+**The Docs menu keeps growing.** A new sub-menu links the docs for RSS and OPML — the two formats the product is built on, now a click away from the timeline. Later the same day: a Blog posts sub-menu, collecting the story so far — from "Can RSS be a social network?" through today's feed icon.
 
 **Tooltips moved home too.** The hover tips on the left-panel icons — Home, New post, Feed, Data — used to appear off to the right, floating over the timeline, pointing at nothing in particular. They now appear directly below the icon and its word. (Theme v0.5.329.)
 

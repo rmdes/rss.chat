@@ -631,7 +631,7 @@
 				text-decoration: none;
 				cursor: pointer;
 				}
-			.divChat .spanAuthor a:hover {
+			.divChat .spanAuthor:hover {
 				text-decoration: underline;
 				}
 			.divChat .spanHandle {
