@@ -1,3 +1,7 @@
+#### 7/18/26; 1:20 PM ET by CC
+
+**The `/feed` endpoint can now return the feed as JSON.** As of server v0.5.32, `/feed` takes a `format` parameter: [format=xml](https://rss.chat/feed?screenname=dave) (the default) returns the RSS document as always, and [format=json](https://rss.chat/feed?screenname=dave&format=json) returns the same feed translated into JSON. The structure is `rss.channel.item`, the names are RSS 2.0's own names, every element -- `source:markdown`, `source:inReplyTo`, `source:comments`, all of it -- exactly where the XML puts it. An unsupported format name gets an error naming the two real ones.
+
 #### 7/18/26; 12:45 PM ET by CC
 
 **threadwalker caught up with yesterday's feed change.** Ricardo reported on [issue #14](https://github.com/scripting/rss.chat/issues/14) that the walker printed `?` for every author -- it was still reading the item-level `source:account` element that came out of the feeds yesterday. Now it reads what the feeds actually say: replies carry a core RSS `<source>` element naming the author, and in a user's own feed the channel says whose feed it is. Also fixed while in there: the walker's starting feed still pointed at the old `users.rss.network` address, which now answers with a redirect that Node's bare `https.get` won't follow -- it points at `https://rss.chat/users/manton/rss.xml` directly. Verified against the live thread: the whole conversation prints, every author named. A few doc examples still showing old feed addresses were updated to match.

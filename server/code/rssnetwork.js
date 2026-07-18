@@ -1,4 +1,4 @@
-var myVersion = "0.5.31", myProductName = "rss.network";
+var myVersion = "0.5.32", myProductName = "rss.network";
 
 const daveappserver = require ("daveappserver");
 const rss = require ("daverss");
@@ -589,7 +589,7 @@ var config = {
 							console.log ("backfillFeeds: screenname == " + screenname + ", err.message == " + err.message);
 							}
 						else {
-							buildFeedForUser (userRec, function (err, xmltext) {
+							buildFeedForUser (userRec, "xml", function (err, xmltext) {
 								if (err) {
 									console.log ("backfillFeeds: screenname == " + screenname + ", err.message == " + err.message);
 									}
@@ -738,7 +738,7 @@ var config = {
 			});
 		return (feedItems);
 		}
-	function buildFeedForUser (userRec, callback) {
+	function buildFeedForUser (userRec, format="xml", callback) {
 		const headElements = getDefaultHeadElements ();
 		headElements.title = userRec.screenname + " on rss.network";
 		headElements.link = "http://" + config.myDomain + "/";
@@ -775,8 +775,21 @@ var config = {
 				}
 			else {
 				const feedItems = buildFeedItems (items);
-				const xmltext = rss.buildRssFeed (headElements, feedItems);
-				callback (undefined, xmltext);
+				var xmltext, jsontext, lowerformat = utils.stringLower (format); //7/18/26 by DW
+				if (lowerformat === "xml") {
+					xmltext = rss.buildRssFeed (headElements, feedItems);
+					callback (undefined, xmltext, lowerformat);
+					}
+				else {
+					if (lowerformat === "json") {
+						jsontext = rss.buildJsonFeed (headElements, feedItems);
+						callback (undefined, jsontext, lowerformat);
+						}
+					else {
+						const message = "Can't build the feed because the format \"" + lowerformat + "\" is not supported here.";
+						callback ({message});
+						}
+					}
 				}
 			});
 		}
@@ -860,7 +873,7 @@ var config = {
 			});
 		}
 	function updateFeedsOnS3 (userRec, callback) {
-		buildFeedForUser (userRec, function (err, xmltext) {
+		buildFeedForUser (userRec, "xml", function (err, xmltext, format) {
 			if (err) {
 				console.log ("updateFeedsOnS3: err.message == " + err.message);
 				callback (err);
@@ -1007,7 +1020,7 @@ var config = {
 				})
 			}
 		}
-	function getUserFeed (screenname, callback) {
+	function getUserFeed (screenname, format="xml", callback) {
 		getUserInfoByScreenname (screenname, function (err, userRec) {
 			if (err) {
 				callback (err);
@@ -1018,13 +1031,13 @@ var config = {
 					callback ({message});
 					}
 				else {
-					buildFeedForUser (userRec, function (err, xmltext) {
+					buildFeedForUser (userRec, format, function (err, xmltext, format) {
 						if (err) {
 							console.log ("getUserFeed: err.message == " + err.message);
 							callback (err);
 							}
 						else {
-							callback (undefined, xmltext);
+							callback (undefined, xmltext, format);
 							}
 						});
 					}
@@ -1645,9 +1658,6 @@ var config = {
 function handleHttpRequest (theRequest) {
 	const params = theRequest.params;
 	
-	function returnXml (s) {
-		theRequest.httpReturn (200, "application/rss+xml", s);
-		}
 	function returnData (jstruct) {
 		if (jstruct === undefined) {
 			jstruct = {};
@@ -1661,17 +1671,20 @@ function handleHttpRequest (theRequest) {
 		console.log ("returnError: err.message == " + err.message); //5/10/26 by DW
 		theRequest.httpReturn (503, "text/plain", err.message);
 		}
-	function httpReturn (err, data) {
+	function returnXml (err, xmltext) { //7/18/26 by DW
 		if (err) {
-			if (err.code !== undefined) { //2/22/25 by DW -- let the caller determine the code
-				theRequest.httpReturn (err.code, "text/plain", err.message);
-				}
-			else {
-				returnError (err);
-				}
+			returnError (err);
 			}
 		else {
-			returnData (data);
+			theRequest.httpReturn (200, "text/xml", xmltext);
+			}
+		}
+	function returnJson (err, jsontext) { //7/18/26 by DW
+		if (err) {
+			returnError (err);
+			}
+		else {
+			theRequest.httpReturn (200, "application/json", jsontext);
 			}
 		}
 	function returnRedirect (url, code=undefined) {
@@ -1692,7 +1705,21 @@ function handleHttpRequest (theRequest) {
 				};
 			return (false); //don't consume, pass it through daveappserver
 		case "/feed":
-			getUserFeed (params.screenname, httpReturn);
+			getUserFeed (params.screenname, params.format, function (err, theText, theFormat) {
+				if (err) {
+					returnError (err);
+					}
+				else {
+					if (theFormat === "xml") {
+						returnXml (undefined, theText);
+						}
+					else {
+						if (theFormat === "json") {
+							returnJson (undefined, theText);
+							}
+						}
+					}
+				});
 			return (true);
 		case "/newpost":
 			newPost (params.emailaddress, params.emailcode, params.jsontext, httpReturn);
@@ -1817,7 +1844,6 @@ function startup () {
 					config [x] = appConfig [x];
 					}
 				updateSubscriptionListOnS3 (); //6/24/26 by DW
-				backfillFeeds (); //7/15/26 by DW
 				utils.runEveryMinute (everyMinute);
 				setInterval (everySecond, 1000); 
 				getMysqlVersion (function (err, mysqlVersion) { //11/18/23 by DW, 2/1/24; 11:22:16 AM by DW
