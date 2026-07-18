@@ -60,7 +60,9 @@ Try it: [https://rss.chat/getiteminfo?id=204&format=rss](https://rss.chat/getite
 
 **`/isuserindatabase?screenname=X`** and **`/isemailindatabase?email=X`** -- each answers `{"flInDatabase": true}` or `false`. The signup dialog uses these to catch collisions before they happen.
 
-**`/feed?screenname=X`** -- the user's RSS feed, built fresh from the database, returned as a string of XML. Note that feeds are normally read from their published static addresses (`https://rss.chat/users/dave/rss.xml`); this call is the live-from-the-database version of the same document.
+**`/feed?screenname=X&format=Y`** -- the user's feed, built fresh from the database. `format` is optional: `xml` (the default) returns the RSS document; `json` returns the same feed as JSON -- not a different format, a translation. The structure and the names are RSS 2.0's own, `rss.channel.item`, every element where you'd expect it, rendered in JSON notation instead of XML. Any other format name gets an error naming the two real ones. Note that feeds are normally read from their published static addresses (`https://rss.chat/users/dave/rss.xml`); this call is the live-from-the-database version of the same document.
+
+Try it: [https://rss.chat/feed?screenname=dave](https://rss.chat/feed?screenname=dave) and [https://rss.chat/feed?screenname=dave&format=json](https://rss.chat/feed?screenname=dave&format=json)
 
 ### Writing
 
