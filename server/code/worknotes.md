@@ -1,3 +1,7 @@
+#### 7/20/26; 5:45 PM ET by CC
+
+**Three small courtesies for writers, all shipped today.** Posts no longer carry blank lines at the end -- if your post trails off with empty paragraphs or stray Returns, the server trims them when it saves, so nothing renders as mysterious empty space below your last line (a new config setting, `flRemoveBlanksAtEnd`, is on by default; set it false to keep trailing blanks). The autolinker learned that `install.md` is a document's name, not a web address -- bare names ending in a file extension that happens to be a real internet domain ending (.md, .zip, .sh, .py) stay plain text, while real addresses, including bare domains like rss.chat, still become links. And the server's subscription list can now carry a title of your choosing: set `titleForSublist` in config.json; leave it out and the title is unchanged.
+
 #### 7/18/26; 1:20 PM ET by CC
 
 **The `/feed` endpoint can now return the feed as JSON.** As of server v0.5.32, `/feed` takes a `format` parameter: [format=xml](https://rss.chat/feed?screenname=dave) (the default) returns the RSS document as always, and [format=json](https://rss.chat/feed?screenname=dave&format=json) returns the same feed translated into JSON. The structure is `rss.channel.item`, the names are RSS 2.0's own names, every element -- `source:markdown`, `source:inReplyTo`, `source:comments`, all of it -- exactly where the XML puts it. An unsupported format name gets an error naming the two real ones.

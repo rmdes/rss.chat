@@ -1,4 +1,4 @@
-var myVersion = "0.5.32", myProductName = "rss.network";
+var myVersion = "0.5.33", myProductName = "rss.network";
 
 const daveappserver = require ("daveappserver");
 const rss = require ("daverss");
@@ -55,6 +55,8 @@ var config = {
 	urlFavicon: "//s3.amazonaws.com/scripting.com/favicon.ico", //7/14/26 by DW
 	
 	flFeedsInDatabase: false, //7/15/26 by DW
+	flRemoveBlanksAtEnd: true, //7/20/26 by DW
+	titleForSublist: undefined, //7/20/26 by DW
 	};
 
 //misc stuff
@@ -115,13 +117,31 @@ var config = {
 			return (undefined);
 			}
 		else {
+			const fileExtensionsNotDomains = ["md", "zip", "sh", "py"]; //7/20/26 by CC -- #181: file extensions that are also real TLDs
 			const theLinker = new autolinker ({
 				urls: true,
 				email: false,
 				phone: false,
 				stripPrefix: false,
 				stripTrailingSlash: false,
-				newWindow: false
+				newWindow: false,
+				replaceFn: function (match) { //7/20/26 by CC -- #181: a bare name like install.md is a doc name, not a domain
+					if (match.getType () === "url") {
+						if (match.getUrlMatchType () === "tld") { //no scheme, no www
+							const matchedText = utils.stringLower (match.getMatchedText ());
+							var flLooksLikeFilename = false;
+							fileExtensionsNotDomains.forEach (function (extension) {
+								if (matchedText.endsWith ("." + extension)) {
+									flLooksLikeFilename = true;
+									}
+								});
+							if (flLooksLikeFilename) {
+								return (false);
+								}
+							}
+						}
+					return (true);
+					}
 				});
 			return (theLinker.link (htmltext));
 			}
@@ -171,6 +191,40 @@ var config = {
 			if (config.opmlListUrl === undefined) {
 				config.opmlListUrl = config.urlServerForClient + "data/subs.opml";
 				}
+			}
+		}
+	function trimTrailingBlankLines (theText) { //7/20/26 by CC
+		if (config.flRemoveBlanksAtEnd) {
+			if (theText === undefined) {
+				return (undefined);
+				}
+			else {
+				const regexTrailingWhitespace = /(\s|&nbsp;)+$/i;
+				const regexEmptyFinalParagraph = /<p>(\s|&nbsp;|<br\s*\/?>)*<\/p>$/i;
+				const regexBreaksBeforeFinalClose = /(\s|&nbsp;|<br\s*\/?>)+<\/p>$/i;
+				var flChanged = true;
+				while (flChanged) {
+					flChanged = false;
+					if (regexTrailingWhitespace.test (theText)) {
+						theText = theText.replace (regexTrailingWhitespace, "");
+						flChanged = true;
+						}
+					if (regexEmptyFinalParagraph.test (theText)) {
+						theText = theText.replace (regexEmptyFinalParagraph, "");
+						flChanged = true;
+						}
+					else {
+						if (regexBreaksBeforeFinalClose.test (theText)) {
+							theText = theText.replace (regexBreaksBeforeFinalClose, "</p>");
+							flChanged = true;
+							}
+						}
+					}
+				return (theText);
+				}
+			}
+		else {
+			return (theText);
 			}
 		}
 //sql code
@@ -920,11 +974,12 @@ var config = {
 				callback (err);
 				}
 			else {
+				const titleForSublist = (config.titleForSublist === undefined) ? "Subscription list for " + myProductName + " running on " + config.myDomain : config.titleForSublist; //7/20/26 by DW
 				const nowstring = new Date ().toGMTString ();
 				var theOutline = {
 					opml: {
 						head: {
-							title: "Subscription list for " + myProductName + " running on " + config.myDomain,
+							title: titleForSublist, //7/20/26 by DW
 							dateModified: nowstring
 							},
 						body: {
@@ -1077,8 +1132,8 @@ var config = {
 						else {
 							const theNewItem = {
 								title: postRec.title,
-								description: linkifyUrls (postRec.description), //7/13/26 by CC -- #175
-								markdowntext: postRec.markdowntext, //6/3/26 by DW
+								description: linkifyUrls (trimTrailingBlankLines (postRec.description)), //7/13/26 by CC -- #175; 7/20/26 -- #192
+								markdowntext: trimTrailingBlankLines (postRec.markdowntext), //6/3/26 by DW; 7/20/26 by CC -- #192
 								inReplyTo: postRec.inReplyTo,
 								feedUrl: getFeedUrl (userRec.screenname),
 								pubDate: new Date (),
@@ -1153,7 +1208,8 @@ var config = {
 											callback ({message});
 											}
 										else {
-											postRec.description = linkifyUrls (postRec.description); //7/13/26 by CC -- #175
+											postRec.description = linkifyUrls (trimTrailingBlankLines (postRec.description)); //7/13/26 by CC -- #175; 7/20/26 -- #192
+											postRec.markdowntext = trimTrailingBlankLines (postRec.markdowntext); //7/20/26 by CC -- #192
 											updateItem (postRec, function (err, itemRec) {
 												if (err) {
 													callback (err);
@@ -1679,6 +1735,14 @@ function handleHttpRequest (theRequest) {
 			theRequest.httpReturn (200, "text/xml", xmltext);
 			}
 		}
+	function returnJson (err, jsontext) { //7/18/26 by DW
+		if (err) {
+			returnError (err);
+			}
+		else {
+			theRequest.httpReturn (200, "application/json", jsontext);
+			}
+		}
 	function httpReturn (err, data) {
 		if (err) {
 			if (err.code !== undefined) { //2/22/25 by DW -- let the caller determine the code
@@ -1690,14 +1754,6 @@ function handleHttpRequest (theRequest) {
 			}
 		else {
 			returnData (data);
-			}
-		}
-	function returnJson (err, jsontext) { //7/18/26 by DW
-		if (err) {
-			returnError (err);
-			}
-		else {
-			theRequest.httpReturn (200, "application/json", jsontext);
 			}
 		}
 	function returnRedirect (url, code=undefined) {

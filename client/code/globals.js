@@ -1,11 +1,11 @@
 const appConsts = {
-	version: "0.6.8", 
+	version: "0.6.9", //7/20/26 by DW
 	
 	productName: settingsFromServer.productName,
 	productNameForDisplay: settingsFromServer.productNameForDisplay,
 	flEnableLogin: settingsFromServer.flEnableLogin,
 	urlServer: settingsFromServer.urlServer,
-	flSocketsEnabled: settingsFromServer.flSocketsEnabled,
+	flSocketsEnabled: getBoolean (settingsFromServer.flSocketsEnabled), //7/20/26 by DW
 	urlSocketServer: settingsFromServer.urlSocketServer,
 	maxCharsItemText: 100,
 	flEllipsesAfterText: true,

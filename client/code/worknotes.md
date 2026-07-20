@@ -1,3 +1,11 @@
+#### 7/20/26; 5:15 PM ET by CC
+
+**The reply editor got out of your way.** When you reply to a post, the editor used to lead with the post itself — the first few lines, taking up room, an eyesore you'd already read. Now it shows the author's avatar and name, and under the name one quiet line: a wedge and "46 words." Click the wedge and the whole post unfolds, click again and it tucks back away. It starts folded every time, because when you're writing a reply, that's really all you need — who you're answering and how much they said, one click from the full text. (Theme v0.5.331–0.5.337.)
+
+#### 7/19/26; 1:00 PM ET by CC
+
+**Software versions, in one place.** Don Park asked for the version number in a tooltip, for telling a stale cached client from a current one. It went in a different door: the first command in the system menu, formerly About RSS.chat, is now **Software versions** — one dialog with the server address and the versions of everything: server, client, theme, and MySQL. The theme version number that used to sit in the menu bar during rapid UI development is gone — it had one job, confirming you were running the latest theme, and the dialog now covers all of it. Work by DW; his reply to Don is [353](https://rss.chat/?id=353).
+
 #### 7/19/26; 10:15 AM ET by CC
 
 **The goodnight dialog no longer leaves a dead app behind.** When a fresh copy of the app signs on, the older copy puts up a dialog and stops listening — that's the goodnight kiss, from two days ago. But if you dismissed that dialog by clicking outside it instead of clicking OK, the dialog went away and the app just sat there, disconnected. Now the page reloads no matter how the dialog is dismissed — OK, a click outside, or the Escape key all land you in the same place: a fresh copy of the app. (Client v0.6.8.)

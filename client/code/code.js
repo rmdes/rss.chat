@@ -579,6 +579,7 @@
 			
 			const socketOptions = {
 				urlFirehoseSocket:  appConsts.urlSocketServer, //6/24/26 by DW
+				flWebsocketEnabled: appConsts.flSocketsEnabled, //7/20/26 by CC -- #186
 				newItemCallback: socketNewItemCallback, //4/20/26 by DW
 				updatedItemCallback: socketUpdatedItemCallback,
 				getSocketGreeting: function () { //7/17/26 by CC
