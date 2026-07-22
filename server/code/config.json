@@ -17,13 +17,6 @@
 	"confirmEmailSubject": "myserver.chat confirmation",
 	"operationToConfirm": "sign in to myserver.chat",
 	"database": {
-		"host": "your-cluster.db.ondigitalocean.com",
-		"port": 25060,
-		"user": "doadmin",
-		"password": "your-db-password",
-		"charset": "utf8mb4",
-		"connectionLimit": 100,
-		"database": "myRssChat",
-		"debug": false
+		"flUseSqlite": true
 		}
 	}

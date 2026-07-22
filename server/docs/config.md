@@ -34,22 +34,17 @@ The base URL used to build the magic links in confirmation emails. Normally the 
 
 ### database
 
-The MySQL connection. `database` is the schema name you created at install time (see [install.md](install.md)). Keep `charset` at `utf8mb4` to match the schema.
+Which database engine to use, and how to reach it. The example config uses SQLite, and this is the whole section:
 
 ```json
 "database": {
-	"host": "your-cluster.db.ondigitalocean.com",
-	"port": 25060,
-	"user": "doadmin",
-	"password": "your-db-password",
-	"charset": "utf8mb4",
-	"connectionLimit": 100,
-	"database": "myRssChat",
-	"debug": false
+	"flUseSqlite": true
 	}
 ```
 
-Never commit a real password. Keep `config.json` out of any public repo.
+With `flUseSqlite` true there is nothing to install and nothing to connect to -- the database is a single file the server creates the first time it runs, at `data/data.db`. To put the file somewhere else, set `databaseFilePath`.
+
+The server can also run on MySQL: leave `flUseSqlite` out (or set it `false`) and provide the connection settings instead -- the shape of that section, and the schema to create, are in [installMysql.md](installMysql.md). Never commit a real password. Keep `config.json` out of any public repo.
 
 ### Where feeds live
 

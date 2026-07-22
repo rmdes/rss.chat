@@ -7,147 +7,53 @@
 3. Inside the code folder, these are the files you need: config.json, emailtemplate.html, package.json, rssnetwork.js. You can remove the rest.
 4. Put the code folder wherever you want the server to run, on the machine that will run it.
 5. Open config.json in a text editor and replace the example values with your own. Every setting is explained in [config.md](config.md).
-	- The example config sets `"flFeedsInDatabase": true`, which means the server stores its feeds in the database and serves them itself, from your own domain. There's nothing more to set up. (The alternative, publishing feeds to Amazon S3, is covered in [config.md](config.md).)
-6. Create your database -- paste the SQL from the next section at a `mysql>` prompt.
-7. In the code folder, run `npm install`.
-8. Start the server: `node rssnetwork.js`.
+	- The example config sets `"flUseSqlite": true` in the `database` section. That's the whole database setup. There is no database server to install, no accounts, no passwords -- the database is a single file the server creates for itself the first time it runs.
+	- The example config also sets `"flFeedsInDatabase": true`, which means the server stores its feeds in the database and serves them itself, from your own domain. (The alternative, publishing feeds to Amazon S3, is covered in [config.md](config.md).)
+6. In the code folder, run `npm install`.
+7. Start the server: `node rssnetwork.js`.
+	- The first time it starts, the server creates its database at `data/data.db` and sets up all its tables. You'll see it in the folder after the first run. That file *is* your database.
 	- The server listens on port 1420. If you're putting a reverse proxy like Caddy or nginx in front of it, that's the port to point it at. To use a different port, set `"port"` in config.json or the PORT environment variable.
 	- Websocket connections use their own port, 1422. If your setup uses websockets (live updates in the browser), your proxy needs to forward websocket upgrade requests there. To change it, set `"websocketPort"` in config.json.
 
-## Create your database
+That's the whole install. If you've set up an earlier version of this server, notice what's missing: the part where you install MySQL, create a database at the `mysql>` prompt, and paste in a page of SQL. The server now carries its own schema and runs it at every startup -- it only does anything the first time, or when a new table arrives in an update.
 
-The server uses MySQL. Paste the following at a `mysql>` prompt. Change `myRssChat` to whatever name you want, and update `config.json` to match.
+## Backups
 
-```sql
-create database myRssChat character set utf8mb4 collate utf8mb4_unicode_ci;
+Because the database is one file, you can back it up by copying `data/data.db` while the server is stopped. But there's a better way, and it works while the server is running:
 
-use myRssChat;
-
-create table users (
-	screenname varchar (255) not null,
-	emailAddress varchar (255),
-	emailSecret varchar (64),
-	prefs json,
-	ctHits int not null default 0,
-	ctHitsToday int not null default 0,
-	whenLastHit datetime,
-	whenCreated datetime default current_timestamp,
-	whenUpdated datetime default current_timestamp on update current_timestamp,
-	primary key (screenname),
-	index emailAddress (emailAddress)
-	) character set utf8mb4 collate utf8mb4_unicode_ci;
-
-create table items (
-	id int unsigned not null auto_increment,
-	feedUrl varchar (512),
-	author varchar (255),
-	inReplyTo int unsigned,
-	title text,
-	link text,
-	description longtext,
-	pubDate datetime,
-	enclosureUrl text,
-	enclosureType text,
-	enclosureLength int,
-	whenCreated datetime default current_timestamp,
-	whenUpdated datetime default current_timestamp on update current_timestamp,
-	markdowntext longtext,
-	outlineJsontext text,
-	flDeleted tinyint (1) not null default 0,
-	primary key (id),
-	index feedUrl (feedUrl),
-	index author (author)
-	) character set utf8mb4 collate utf8mb4_unicode_ci;
-
-create table likes (
-	screenname varchar (255),
-	itemId int unsigned,
-	whenCreated datetime default current_timestamp,
-	primary key (screenname, itemId),
-	index itemId (itemId)
-	) character set utf8mb4 collate utf8mb4_unicode_ci;
-
-create table files (
-	path varchar (512) not null,
-	type varchar (64),
-	filecontents longtext,
-	whenCreated datetime default current_timestamp,
-	whenUpdated datetime default current_timestamp on update current_timestamp,
-	ctSaves int unsigned not null default 1,
-	primary key (path)
-	) character set utf8mb4 collate utf8mb4_unicode_ci;
+```
+node rssnetwork.js export backup.json
 ```
 
-### Notes on the schema
+That writes every user, post, like, and served file to backup.json, reports the counts, and exits -- it never starts the web server, and it doesn't disturb the one that's running. To load a backup into a fresh server:
 
-**users** -- one row per signed-in user. `screenname` is the primary key; `emailAddress` is indexed because the magic-link flow looks users up by email. `emailSecret` holds the rotating confirmation code.
-
-- `ctHits`, `ctHitsToday`, and `whenLastHit` record how active each user is, which matters most when a server is young and you want to see who is really using it. A single function, `bumpUserHits`, updates all three in one write: it adds one to `ctHits` (the lifetime count), sets `ctHitsToday` to one more than its current value when the last hit fell on the same calendar day and resets it to one otherwise (the day rollover is computed in SQL against the row's own `whenLastHit`, so no in-memory state is involved), and stamps `whenLastHit` with the current time. The server calls it after an authenticated user action worth counting -- today that is `savePrefs` -- and any future call site works the same way.
-
-**items** -- one row per posted item. Mirrors FeedLand's items table where the columns overlap, so anyone familiar with FeedLand will recognize the shape.
-
-- `feedUrl` is the partition key for items, indexed.
-- `author` is the poster's screenname, indexed because the item-read queries join `users` on it.
-- `inReplyTo` is the `id` of the item this one replies to, for threading.
-- `description` is the HTML the client sent; `markdowntext` is the markdown derived from it via turndown. The feed emits both.
-- `outlineJsontext` is reserved for outline-typed posts (richer post types per the textcasting spec).
-- `title`, `link`, and the `enclosure*` columns are optional -- most chat-style posts have only `description`.
-- `flDeleted` marks a soft-deleted item. A delete sets the flag rather than removing the row, so reply threads stay intact; the item-reading queries filter it out. Matches FeedLand's `flDeleted`.
-- `whenCreated` and `whenUpdated` auto-populate via the schema defaults.
-
-**likes** -- one row per (user, item) like. The primary key `(screenname, itemId)` makes a like idempotent (you can't like the same item twice) and the toggle a single insert or delete. There is no copy of the like data on the item row -- the item-read queries compute `ctLikes` (a count) and `flLiked` (does the current viewer have a row) on the fly, which is what the `itemId` index is for. Unlike FeedLand, which keeps a denormalized list of likers stamped on each item, this is the single source of truth.
-
-**files** -- the feeds and the subscription list, when `flFeedsInDatabase` is on. One row per file: `path` is the request path the file is served at (`/users/dave/rss.xml`), `filecontents` is the file, `type` is its content type, and `ctSaves` counts how many times it's been rebuilt. Paths are stored lowercase, so feed URLs are case-insensitive. If you serve feeds from S3 instead, this table simply stays empty.
-
-### Upgrading an existing database
-
-The block above is for a fresh install. If you already have a running server from an earlier version, add the new tables on their own.
-
-The `files` table, for serving feeds from the database:
-
-```sql
-create table files (
-	path varchar (512) not null,
-	type varchar (64),
-	filecontents longtext,
-	whenCreated datetime default current_timestamp,
-	whenUpdated datetime default current_timestamp on update current_timestamp,
-	ctSaves int unsigned not null default 1,
-	primary key (path)
-	) character set utf8mb4 collate utf8mb4_unicode_ci;
+```
+node rssnetwork.js import backup.json
 ```
 
-Then add `"flFeedsInDatabase": true` to your config.json, remove the four feed-location settings (`rssS3Path`, `rssFeedUrl`, `opmlS3Path`, `opmlListUrl`), and restart. The server rebuilds every feed into the database at startup, so the files are all there before the first request. Anyone subscribed to your feeds at the old S3 addresses will need a redirect from the old location to the new one -- a single permanent-redirect rule on the old feed domain, pointing each path at the same path on your server, moves every subscriber over.
+Post ids survive the round trip, so permalinks keep working.
 
-**One more step, and your feeds will be empty without it.** Each post remembers the address of the feed it belongs to, in the `feedUrl` column of the `items` table, and feeds are built by matching on that address. When you switch to database mode your feed addresses change -- they were wherever `rssFeedUrl` pointed, now they're `https://yourdomain.com/users/` -- so posts saved before the switch no longer match, and every rebuilt feed comes up empty. The fix is one SQL statement that rewrites the old base address to the new one:
+## Coming from a MySQL install
 
-```sql
-update items set feedUrl = replace (feedUrl, 'https://old.feed.domain/', 'https://yourdomain.com/users/');
-```
+If you're running an earlier version of this server on MySQL, the export and import verbs are also the migration path:
 
-Put your old `rssFeedUrl` value in the first string and your server's address plus `/users/` in the second, run it, then restart the server so the feeds rebuild. When we upgraded rss.chat this was the step we missed the first time -- a user's feed was empty until we found it.
+1. Update to the current rssnetwork.js and davesql, and restart. Nothing changes -- the server keeps running on MySQL until you say otherwise.
+2. Run `npm install better-sqlite3` in the server folder. If your Node is older than 22, ask for the last major that supports it: `npm install better-sqlite3@11`.
+3. Export: `node rssnetwork.js export backup.json`.
+4. Add `"flUseSqlite": true` to the `database` section of config.json. Your MySQL settings can stay where they are; they're ignored while the flag is on.
+5. Import: `node rssnetwork.js import backup.json`. The counts it reports should match the export's.
+	- Import only adds rows, so it expects an empty database. If it stops with a `UNIQUE constraint` error, the server restarted on the new empty database before the import ran and someone touched it -- delete `data/data.db` and run the import again.
+6. Restart the server.
 
-The `likes` table:
+Your MySQL database is never written to by any of this, so if anything looks wrong, set the flag back to false and restart -- you're exactly where you started. We moved rss.chat itself this way; the whole thing took about five minutes.
 
-```sql
-create table likes (
-	screenname varchar (255),
-	itemId int unsigned,
-	whenCreated datetime default current_timestamp,
-	primary key (screenname, itemId),
-	index itemId (itemId)
-	) character set utf8mb4 collate utf8mb4_unicode_ci;
-```
+## Still using MySQL
 
-To add the per-user activity counters (`ctHits`, `ctHitsToday`, `whenLastHit`) to an existing `users` table:
-
-```sql
-alter table users add column ctHits int not null default 0, add column ctHitsToday int not null default 0, add column whenLastHit datetime;
-```
+MySQL still works -- every server that runs on it today keeps running, and `"flUseSqlite": false` (or leaving the flag out) keeps a server on it. The MySQL setup, including the full schema, is preserved in [installMysql.md](installMysql.md).
 
 ## An AI can do this install
 
-These instructions work for people, and they work for AIs. If you use Claude Code or a similar agent, give it shell access on the machine that will run the server, point it at this document, and tell it to do the install. It can set up Node and MySQL, create the database from the schema above, fill in config.json, and start the server -- checking with you only on the questions that are genuinely yours to answer: your domain name and your database name.
+These instructions work for people, and they work for AIs. If you use Claude Code or a similar agent, give it shell access on the machine that will run the server, point it at this document, and tell it to do the install. It can set up Node, fill in config.json, and start the server -- checking with you only on the one question that is genuinely yours to answer: your domain name.
 
 The instructions above read the same either way. Follow them yourself, or read along while your AI does.
 
@@ -156,4 +62,3 @@ Written by Claude Code.
 &nbsp;
 
 &nbsp;
-
