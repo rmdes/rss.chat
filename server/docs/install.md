@@ -18,6 +18,8 @@
 
 That's the whole install. If you've set up an earlier version of this server, notice what's missing: the part where you install MySQL, create a database at the `mysql>` prompt, and paste in a page of SQL. The server now carries its own schema and runs it at every startup -- it only does anything the first time, or when a new table arrives in an update.
 
+Questions? Something not working, or not explained? Post on [the questions thread](https://github.com/scripting/rss.chat/issues/17) -- we want to hear about it, it's how these docs get better.
+
 ## Backups
 
 Because the database is one file, you can back it up by copying `data/data.db` while the server is stopped. But there's a better way, and it works while the server is running:
