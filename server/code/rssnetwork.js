@@ -16,7 +16,7 @@ const sanitizeHtml = require ("sanitize-html"); //7/23/26 by CC
 var config = {
 	productName: "rssNetwork",
 	productNameForDisplay: "rssNetwork", 
-	urlServerHomePageSource: "http://scripting.com/code/testing/rssnetwork/client/index.html",
+	urlServerHomePageSource: "https://code.scripting.com/rsschat/index.html", //7/23/26 by DW
 	myDomain: "my.network.org",
 	urlServerForClient: "http://my.network.org/",
 	urlWebsocketServerForClient: "",
