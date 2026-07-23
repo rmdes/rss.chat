@@ -161,7 +161,12 @@
 		add ("<li>Server version: v" + globals.userData.serverVersion + ".</li>"); //7/1/26 by DW
 		add ("<li>Client version: v" + appConsts.version + ".</li>"); //7/2/26 by DW
 		add ("<li>Current theme: " + firstCharUpper (appPrefs.currentThemeName) + " v" + getThemeVersion () + "</li>");
-		add ("<li>MySQL version: v" + globals.userData.mySqlVersion + "</li>");
+		
+		var serverName = "MySQL"; //7/21/26 by DW
+		if (globals.userData.databaseEngine !== undefined) {
+			serverName = globals.userData.databaseEngine;
+			}
+		add ("<li>" + serverName + " version: v" + globals.userData.mySqlVersion + "</li>");
 		
 		add ("</ul>");
 		add ("</div>");
@@ -530,6 +535,7 @@
 		}
 //startup support -- 7/13/26 by DW
 	function simpleInits () { //7/13/26 by DW -- startup things that don't need to be waited for
+		startTurndown (); //7/22/26 by DW
 		$(".divMenuProductName").text (settingsFromServer.productNameForDisplay); //7/13/26 by DW
 		hitCounter (); 
 		}
@@ -579,6 +585,7 @@
 			
 			const socketOptions = {
 				urlFirehoseSocket:  appConsts.urlSocketServer, //6/24/26 by DW
+				flWebsocketEnabled: appConsts.flSocketsEnabled, //7/20/26 by CC -- #186
 				newItemCallback: socketNewItemCallback, //4/20/26 by DW
 				updatedItemCallback: socketUpdatedItemCallback,
 				getSocketGreeting: function () { //7/17/26 by CC

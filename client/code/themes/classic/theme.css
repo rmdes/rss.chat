@@ -4,7 +4,7 @@
 				--icon-gap: 72px;
 				}
 
-			.divChat [class^="span"] {
+			.divChat [class^="span"], .divReplyOverlay [class^="span"] { /*7/20/26 by CC -- #155: bootstrap's grid claims any class containing "span" (float + 20px margin); the reply editor lives outside .divChat, so it needs the same protection*/
 				margin-left: 0;
 				float: none;
 				min-height: 0;
@@ -1040,17 +1040,30 @@
 				overflow: hidden;
 				user-select: none;
 				}
-			.divReplyParentText.bodyTruncated {
-				cursor: pointer;
-				}
-			.divReplyParentText.flExpanded {
+			.divReplyParentText.flExpanded { /*7/20/26 by CC -- #155: natural height, so the whole post shows with no scroll bar; the max-height only kicks in for a very long post*/
 				display: block;
 				-webkit-line-clamp: unset;
-				flex: 1;
-				min-height: 0;
+				max-height: 30vh;
 				overflow-y: auto;
 				border-bottom: none;
+				margin-bottom: 6px; /*air between the open post and what's below it*/
+				}
+			.divReplyParentSummary { /*7/20/26 by CC -- #155: the wedge and word count, directly under the author's name*/
+				display: flex;
+				align-items: center; /*the wedge sits vertically centered on the text line*/
+				margin-bottom: 10px; /*the gap below the word-count line -- the one knob to twiddle*/
+				font-size: 14px;
+				color: #536471;
 				cursor: pointer;
+				user-select: none;
+				}
+			.divReplyParentSummary .spanReplyWedge {
+				display: inline-block; /*a transform needs a box to rotate*/
+				margin-right: 5px; /*the space between the wedge and the word count*/
+				transition: transform 0.15s;
+				}
+			.divReplyParentSummary.flExpanded .spanReplyWedge {
+				transform: rotate(90deg);
 				}
 			.divReplyComposerRow {
 				display: flex;

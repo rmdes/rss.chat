@@ -1,4 +1,4 @@
-var myVersion = "0.5.32", myProductName = "rss.network";
+var myVersion = "0.6.0", myProductName = "rss.network";
 
 const daveappserver = require ("daveappserver");
 const rss = require ("daverss");
@@ -55,6 +55,8 @@ var config = {
 	urlFavicon: "//s3.amazonaws.com/scripting.com/favicon.ico", //7/14/26 by DW
 	
 	flFeedsInDatabase: false, //7/15/26 by DW
+	flRemoveBlanksAtEnd: true, //7/20/26 by DW
+	titleForSublist: undefined, //7/20/26 by DW
 	};
 
 //misc stuff
@@ -78,7 +80,7 @@ var config = {
 			});
 		}
 	function getMysqlVersion (callback) { //11/18/23 by DW
-		const sqltext = "select version () as version;";
+		const sqltext = (config.database.flUseSqlite) ? "select sqlite_version () as version;" : "select version () as version;"; //7/21/26 by CC
 		davesql.runSqltext (sqltext, function (err, result) {
 			var theVersion = undefined;
 			if (err) {
@@ -115,13 +117,31 @@ var config = {
 			return (undefined);
 			}
 		else {
+			const fileExtensionsNotDomains = ["md", "zip", "sh", "py"]; //7/20/26 by CC -- #181: file extensions that are also real TLDs
 			const theLinker = new autolinker ({
 				urls: true,
 				email: false,
 				phone: false,
 				stripPrefix: false,
 				stripTrailingSlash: false,
-				newWindow: false
+				newWindow: false,
+				replaceFn: function (match) { //7/20/26 by CC -- #181: a bare name like install.md is a doc name, not a domain
+					if (match.getType () === "url") {
+						if (match.getUrlMatchType () === "tld") { //no scheme, no www
+							const matchedText = utils.stringLower (match.getMatchedText ());
+							var flLooksLikeFilename = false;
+							fileExtensionsNotDomains.forEach (function (extension) {
+								if (matchedText.endsWith ("." + extension)) {
+									flLooksLikeFilename = true;
+									}
+								});
+							if (flLooksLikeFilename) {
+								return (false);
+								}
+							}
+						}
+					return (true);
+					}
 				});
 			return (theLinker.link (htmltext));
 			}
@@ -173,7 +193,166 @@ var config = {
 				}
 			}
 		}
+	function trimTrailingBlankLines (theText) { //7/20/26 by CC
+		if (config.flRemoveBlanksAtEnd) {
+			if (theText === undefined) {
+				return (undefined);
+				}
+			else {
+				const regexTrailingWhitespace = /(\s|&nbsp;)+$/i;
+				const regexEmptyFinalParagraph = /<p>(\s|&nbsp;|<br\s*\/?>)*<\/p>$/i;
+				const regexBreaksBeforeFinalClose = /(\s|&nbsp;|<br\s*\/?>)+<\/p>$/i;
+				var flChanged = true;
+				while (flChanged) {
+					flChanged = false;
+					if (regexTrailingWhitespace.test (theText)) {
+						theText = theText.replace (regexTrailingWhitespace, "");
+						flChanged = true;
+						}
+					if (regexEmptyFinalParagraph.test (theText)) {
+						theText = theText.replace (regexEmptyFinalParagraph, "");
+						flChanged = true;
+						}
+					else {
+						if (regexBreaksBeforeFinalClose.test (theText)) {
+							theText = theText.replace (regexBreaksBeforeFinalClose, "</p>");
+							flChanged = true;
+							}
+						}
+					}
+				return (theText);
+				}
+			}
+		else {
+			return (theText);
+			}
+		}
 //sql code
+	function initNewDatabase (callback) { //7/21/26 by CC
+		const theStatements = [
+			"create table if not exists users (screenname text not null collate nocase, emailAddress text collate nocase, emailSecret text, prefs text, ctHits integer not null default 0, ctHitsToday integer not null default 0, whenLastHit text, whenCreated text default current_timestamp, whenUpdated text default current_timestamp, primary key (screenname));",
+			"create index if not exists emailAddress on users (emailAddress);",
+			"create table if not exists items (id integer primary key, feedUrl text, author text collate nocase, inReplyTo integer, title text, link text, description text, pubDate text, enclosureUrl text, enclosureType text, enclosureLength integer, whenCreated text default current_timestamp, whenUpdated text default current_timestamp, markdowntext text, outlineJsontext text, flDeleted integer not null default 0);",
+			"create index if not exists feedUrl on items (feedUrl);",
+			"create index if not exists author on items (author);",
+			"create table if not exists likes (screenname text collate nocase, itemId integer, whenCreated text default current_timestamp, primary key (screenname, itemId));",
+			"create index if not exists itemId on likes (itemId);",
+			"create table if not exists files (path text not null, type text, filecontents text, whenCreated text default current_timestamp, whenUpdated text default current_timestamp, ctSaves integer not null default 1, primary key (path));",
+			"create trigger if not exists usersWhenUpdated after update on users begin update users set whenUpdated = datetime ('now') where screenname = new.screenname; end;",
+			"create trigger if not exists itemsWhenUpdated after update on items begin update items set whenUpdated = datetime ('now') where id = new.id; end;"
+			];
+		var ixStatement = 0;
+		function nextStatement () {
+			if (ixStatement >= theStatements.length) {
+				callback ();
+				}
+			else {
+				davesql.runSqltext (theStatements [ixStatement++], function (err) {
+					if (err) {
+						console.log ("initNewDatabase: err.message == " + err.message);
+						}
+					nextStatement ();
+					});
+				}
+			}
+		nextStatement ();
+		}
+	function exportDatabase (f, callback) { //7/21/26 by CC
+		const theTables = ["users", "items", "likes", "files"];
+		const jstruct = new Object ();
+		var ixTable = 0;
+		function nextTable () {
+			if (ixTable >= theTables.length) {
+				fs.writeFile (f, utils.jsonStringify (jstruct), function (err) {
+					if (err) {
+						callback (err);
+						}
+					else {
+						callback (undefined, jstruct);
+						}
+					});
+				}
+			else {
+				const tableName = theTables [ixTable++];
+				davesql.runSqltext ("select * from " + tableName + ";", function (err, result) {
+					if (err) {
+						callback (err);
+						}
+					else {
+						jstruct [tableName] = result;
+						nextTable ();
+						}
+					});
+				}
+			}
+		nextTable ();
+		}
+	function importDatabase (f, callback) { //7/21/26 by CC
+		function convertRow (row) { //dates arrive as ISO strings, nulls insert wrong when encoded -- fix both
+			for (var x in row) {
+				if (row [x] === null) {
+					delete row [x]; //a missing column inserts as null on both engines
+					}
+				else {
+					if ((utils.beginsWith (x, "when")) || (x == "pubDate")) {
+						row [x] = davesql.formatDateTime (row [x]);
+						}
+					}
+				}
+			}
+		fs.readFile (f, "utf8", function (err, filetext) {
+			if (err) {
+				callback (err);
+				}
+			else {
+				var jstruct;
+				try {
+					jstruct = JSON.parse (filetext);
+					}
+				catch (err) {
+					callback (err);
+					return;
+					}
+				const theTables = ["users", "items", "likes", "files"];
+				var ixTable = 0, ctRows = 0;
+				function nextTable () {
+					if (ixTable >= theTables.length) {
+						callback (undefined, {ctRows});
+						}
+					else {
+						const tableName = theTables [ixTable++];
+						const theRows = jstruct [tableName];
+						if ((theRows === undefined) || (theRows.length === 0)) {
+							nextTable ();
+							}
+						else {
+							var ixRow = 0;
+							function nextRow () {
+								if (ixRow >= theRows.length) {
+									nextTable ();
+									}
+								else {
+									const row = theRows [ixRow++];
+									convertRow (row);
+									davesql.runSqltext ("insert into " + tableName + " " + davesql.encodeValues (row), function (err) {
+										if (err) {
+											callback (err);
+											}
+										else {
+											ctRows++;
+											nextRow ();
+											}
+										});
+									}
+								}
+							nextRow ();
+							}
+						}
+					}
+				nextTable ();
+				}
+			});
+		}
 	function convertString (theString) {
 		if ((theString === null) || (theString === undefined)) {
 			return (undefined);
@@ -920,11 +1099,12 @@ var config = {
 				callback (err);
 				}
 			else {
+				const titleForSublist = (config.titleForSublist === undefined) ? "Subscription list for " + myProductName + " running on " + config.myDomain : config.titleForSublist; //7/20/26 by DW
 				const nowstring = new Date ().toGMTString ();
 				var theOutline = {
 					opml: {
 						head: {
-							title: "Subscription list for " + myProductName + " running on " + config.myDomain,
+							title: titleForSublist, //7/20/26 by DW
 							dateModified: nowstring
 							},
 						body: {
@@ -990,6 +1170,7 @@ var config = {
 			urlFeedlandServer: config.urlFeedlandServer,
 			serverVersion: myVersion, //7/1/26 by DW
 			mySqlVersion: config.mysqlVersion, //7/1/26 by DW
+			databaseEngine: (config.database.flUseSqlite) ? "SQLite" : "MySQL", //7/21/26 by CC
 			}
 		if (screenname === undefined) {
 			callback (undefined, theData);
@@ -1077,8 +1258,8 @@ var config = {
 						else {
 							const theNewItem = {
 								title: postRec.title,
-								description: linkifyUrls (postRec.description), //7/13/26 by CC -- #175
-								markdowntext: postRec.markdowntext, //6/3/26 by DW
+								description: linkifyUrls (trimTrailingBlankLines (postRec.description)), //7/13/26 by CC -- #175; 7/20/26 -- #192
+								markdowntext: trimTrailingBlankLines (postRec.markdowntext), //6/3/26 by DW; 7/20/26 by CC -- #192
 								inReplyTo: postRec.inReplyTo,
 								feedUrl: getFeedUrl (userRec.screenname),
 								pubDate: new Date (),
@@ -1153,7 +1334,8 @@ var config = {
 											callback ({message});
 											}
 										else {
-											postRec.description = linkifyUrls (postRec.description); //7/13/26 by CC -- #175
+											postRec.description = linkifyUrls (trimTrailingBlankLines (postRec.description)); //7/13/26 by CC -- #175; 7/20/26 -- #192
+											postRec.markdowntext = trimTrailingBlankLines (postRec.markdowntext); //7/20/26 by CC -- #192
 											updateItem (postRec, function (err, itemRec) {
 												if (err) {
 													callback (err);
@@ -1270,7 +1452,8 @@ var config = {
 			});
 		}
 	function bumpUserHits (screenname, callback) { //7/1/26 by CC
-		const sqltext = "update users set ctHits = ctHits + 1, ctHitsToday = case when date (whenLastHit) = date (now ()) then ctHitsToday + 1 else 1 end, whenLastHit = now () where screenname = " + davesql.encode (screenname) + ";";
+		const now = new Date (); //7/21/26 by CC -- sqlite has no now () function, the timestamp comes from the app
+		const sqltext = "update users set ctHits = ctHits + 1, ctHitsToday = case when date (whenLastHit) = date (" + davesql.encode (now) + ") then ctHitsToday + 1 else 1 end, whenLastHit = " + davesql.encode (now) + " where screenname = " + davesql.encode (screenname) + ";";
 		davesql.runSqltext (sqltext, function (err) {
 			if (err) {
 				if (callback !== undefined) {
@@ -1527,7 +1710,13 @@ var config = {
 			whenUpdated: now,
 			ctSaves: 1
 			};
-		const onDuplicatePart = "on duplicate key update type = values (type), filecontents = values (filecontents), whenUpdated = " + davesql.encode (now) + ", ctSaves = ctSaves + 1";
+		var onDuplicatePart; //7/21/26 by CC -- each engine has its own upsert syntax
+		if (config.database.flUseSqlite) {
+			onDuplicatePart = "on conflict (path) do update set type = excluded.type, filecontents = excluded.filecontents, whenUpdated = " + davesql.encode (now) + ", ctSaves = ctSaves + 1";
+			}
+		else {
+			onDuplicatePart = "on duplicate key update type = values (type), filecontents = values (filecontents), whenUpdated = " + davesql.encode (now) + ", ctSaves = ctSaves + 1";
+			}
 		const sqltext = "insert into files " + getEncodedValues (fileRec) + " " + onDuplicatePart + ";";
 		davesql.runSqltext (sqltext, function (err, result) {
 			if (err) {
@@ -1679,6 +1868,14 @@ function handleHttpRequest (theRequest) {
 			theRequest.httpReturn (200, "text/xml", xmltext);
 			}
 		}
+	function returnJson (err, jsontext) { //7/18/26 by DW
+		if (err) {
+			returnError (err);
+			}
+		else {
+			theRequest.httpReturn (200, "application/json", jsontext);
+			}
+		}
 	function httpReturn (err, data) {
 		if (err) {
 			if (err.code !== undefined) { //2/22/25 by DW -- let the caller determine the code
@@ -1690,14 +1887,6 @@ function handleHttpRequest (theRequest) {
 			}
 		else {
 			returnData (data);
-			}
-		}
-	function returnJson (err, jsontext) { //7/18/26 by DW
-		if (err) {
-			returnError (err);
-			}
-		else {
-			theRequest.httpReturn (200, "application/json", jsontext);
 			}
 		}
 	function returnRedirect (url, code=undefined) {
@@ -1837,32 +2026,90 @@ function startup () {
 		}
 	utils.readConfig ("config.json", config, function () {
 		davesql.start (config.database, function () {
-			initDatabaseUrls (); //7/15/26 by DW
-			
-			var options = {
-				urlServerForClient: config.urlServerForClient,
-				flWebsocketEnabled: config.flWebsocketEnabled, 
-				urlWebsocketServerForClient: config.urlWebsocketServerForClient,
+			function continueStartup () { //7/21/26 by CC
+				initDatabaseUrls (); //7/15/26 by DW
 				
-				findUserWithScreenname,
-				findUserWithEmail,
-				getScreenNameFromEmail,
-				addEmailToUserInDatabase,
-				isUserAdmin,
-				
-				httpRequest: handleHttpRequest,
-				};
-			daveappserver.start (options, function (appConfig) { //daveappserver reads our config.json file and returns it
-				for (var x in appConfig) {
-					config [x] = appConfig [x];
-					}
-				updateSubscriptionListOnS3 (); //6/24/26 by DW
-				utils.runEveryMinute (everyMinute);
-				setInterval (everySecond, 1000); 
-				getMysqlVersion (function (err, mysqlVersion) { //11/18/23 by DW, 2/1/24; 11:22:16 AM by DW
-					config.mysqlVersion = mysqlVersion;
+				var options = {
+					urlServerForClient: config.urlServerForClient,
+					flWebsocketEnabled: config.flWebsocketEnabled, 
+					urlWebsocketServerForClient: config.urlWebsocketServerForClient,
+					
+					findUserWithScreenname,
+					findUserWithEmail,
+					getScreenNameFromEmail,
+					addEmailToUserInDatabase,
+					isUserAdmin,
+					
+					httpRequest: handleHttpRequest,
+					};
+				daveappserver.start (options, function (appConfig) { //daveappserver reads our config.json file and returns it
+					for (var x in appConfig) {
+						config [x] = appConfig [x];
+						}
+					updateSubscriptionListOnS3 (); //6/24/26 by DW
+					utils.runEveryMinute (everyMinute);
+					setInterval (everySecond, 1000); 
+					getMysqlVersion (function (err, mysqlVersion) { //11/18/23 by DW, 2/1/24; 11:22:16 AM by DW
+						config.mysqlVersion = mysqlVersion;
+						});
 					});
-				});
+				}
+			
+			function doCommandLineVerb (theVerb, theParam) { //7/21/26 by CC
+				function done (err, result) {
+					if (err) {
+						console.log (err.message);
+						process.exit (1);
+						}
+					else {
+						var theReport = "";
+						if (result !== undefined) {
+							for (var x in result) {
+								if (theReport.length > 0) {
+									theReport += ", ";
+									}
+								theReport += x + ": " + ((result [x].length !== undefined) ? result [x].length : result [x]);
+								}
+							}
+						console.log (theVerb + " done -- " + theReport);
+						process.exit (0);
+						}
+					}
+				if (theParam === undefined) {
+					console.log ("Can't " + theVerb + " the database because no file was specified.");
+					process.exit (1);
+					}
+				else {
+					switch (theVerb) {
+						case "export":
+							exportDatabase (theParam, done);
+							break;
+						case "import":
+							importDatabase (theParam, done);
+							break;
+						default:
+							console.log ("Can't run the verb " + theVerb + " because it isn't one of export or import.");
+							process.exit (1);
+							break;
+						}
+					}
+				}
+			function afterDatabaseInit () { //7/21/26 by CC -- a verb on the command line does its work and exits, no web server
+				const theVerb = process.argv [2];
+				if (theVerb === undefined) {
+					continueStartup ();
+					}
+				else {
+					doCommandLineVerb (theVerb, process.argv [3]);
+					}
+				}
+			
+			if (config.database.flUseSqlite) { //7/21/26 by CC -- make sure the tables exist before anything queries
+				initNewDatabase (afterDatabaseInit);
+				}
+			else {
+				afterDatabaseInit ();
+				}
 			});
 		});
 	}
