@@ -25,6 +25,7 @@ outlinedialog/code.js|https://s3.amazonaws.com/scripting.com/code/outlinedialog/
 outlinedialog/styles.css|https://s3.amazonaws.com/scripting.com/code/outlinedialog/styles.css
 turndown/turndown.js|https://cdn.jsdelivr.net/npm/turndown@7.1.1/dist/turndown.js
 images/kittyStamp.png|https://imgs.scripting.com/2024/09/10/kittyStamp.png
+favicon.ico|https://s3.amazonaws.com/scripting.com/favicon.ico
 "
 
 : > "$LOCK.new"
