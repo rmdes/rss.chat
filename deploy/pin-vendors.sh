@@ -17,14 +17,12 @@ fontawesome/css/all.css|https://s3.amazonaws.com/scripting.com/code/fontawesome/
 feedland/api.js|https://s3.amazonaws.com/scripting.com/code/feedland/home/dev/api.js
 feedland/signupdialog.css|https://s3.amazonaws.com/scripting.com/code/feedland/home/dev/signupdialog.css
 feedland/signupdialog.js|https://s3.amazonaws.com/scripting.com/code/feedland/home/dev/signupdialog.js
-feedland/sockets.js|https://s3.amazonaws.com/scripting.com/code/feedland/home/sockets.js
 concord/concord.js|https://s3.amazonaws.com/scripting.com/code/concord/testing/3.0.6/concord.js
 concord/concordstyles.css|https://s3.amazonaws.com/scripting.com/code/concord/testing/3.0.6/concordstyles.css
 fargo/outliner.js|https://s3.amazonaws.com/fargo.io/code/shared/outliner.js
 fargo/markdownConverter.js|https://s3.amazonaws.com/fargo.io/code/markdownConverter.js
 outlinedialog/code.js|https://s3.amazonaws.com/scripting.com/code/outlinedialog/code.js
 outlinedialog/styles.css|https://s3.amazonaws.com/scripting.com/code/outlinedialog/styles.css
-rsschat/feedlandsocket.js|https://s3.amazonaws.com/scripting.com/code/rsschat/feedlandsocket.js
 turndown/turndown.js|https://cdn.jsdelivr.net/npm/turndown@7.1.1/dist/turndown.js
 images/kittyStamp.png|https://imgs.scripting.com/2024/09/10/kittyStamp.png
 "

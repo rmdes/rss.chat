@@ -7,14 +7,12 @@ f64f1268bdcebdb26e4b0c9ad0fe26b8b33a9b5688916edd11c6a9536f40e4a4  fontawesome/cs
 713f0bcbbee492f9d896a5620c82147f541c86853f60abb0b6082ecd66d5a095  feedland/api.js  https://s3.amazonaws.com/scripting.com/code/feedland/home/dev/api.js
 96b5abab7a3092c6c0b0e18ae60e4da0ba983d671b6cb2b452fce50c07c823f7  feedland/signupdialog.css  https://s3.amazonaws.com/scripting.com/code/feedland/home/dev/signupdialog.css
 a9b9cd75d6ca3c16065c28be44539e08b7326c102789cdbadc635fe8dddedcf5  feedland/signupdialog.js  https://s3.amazonaws.com/scripting.com/code/feedland/home/dev/signupdialog.js
-65aa6b9baf8d438e042bd21953b5d6b62632f8958f3ddaa1157aee1c0fbfaba2  feedland/sockets.js  https://s3.amazonaws.com/scripting.com/code/feedland/home/sockets.js
 ed9e2404629ecc16b4f697c4adadc8fb5d5b2deb02fb7b6965b1022bfb96048e  concord/concord.js  https://s3.amazonaws.com/scripting.com/code/concord/testing/3.0.6/concord.js
 36e4e99296bf214820d33b5c03d4eb4984de03c042a13789c278f2a34628654f  concord/concordstyles.css  https://s3.amazonaws.com/scripting.com/code/concord/testing/3.0.6/concordstyles.css
 bf4d30f3d299ed90e791c0a54fb97aa9ba8abca39aa6fbed906c8a75e5fa59b0  fargo/outliner.js  https://s3.amazonaws.com/fargo.io/code/shared/outliner.js
 00893626b9c66719ba9439aa639a04f55bcd3009a002feb611da6d34ed0f1625  fargo/markdownConverter.js  https://s3.amazonaws.com/fargo.io/code/markdownConverter.js
 1ddb09ba896074d3eedb9c0407fd00f32646f88fb251258949f7fbdb3357b835  outlinedialog/code.js  https://s3.amazonaws.com/scripting.com/code/outlinedialog/code.js
 69c0131fa1b2ae5368955a8678a7b8dd0852bd1752c5bbcc7250612a6855fccf  outlinedialog/styles.css  https://s3.amazonaws.com/scripting.com/code/outlinedialog/styles.css
-7b343f7878428fc0809934d5080a1d28524797a33e6560b8fea3fc0bfb9fd735  rsschat/feedlandsocket.js  https://s3.amazonaws.com/scripting.com/code/rsschat/feedlandsocket.js
 b7e8f59e7c80aa531f6feaea211e70594ba5dac88696161b4f907a00b5d58fa0  turndown/turndown.js  https://cdn.jsdelivr.net/npm/turndown@7.1.1/dist/turndown.js
 4d68f3e8fd4873fc26be3e4fb3c886fc94b8cdff07cbf8b7fab7790699a25923  images/kittyStamp.png  https://imgs.scripting.com/2024/09/10/kittyStamp.png
 914a7ba14b7d4eb4ff3bd34d48e258834bcb96764d49e710654f5f8094e9f9f9  fontawesome/webfonts/fa-brands-400.eot  https://s3.amazonaws.com/scripting.com/code/fontawesome/webfonts/fa-brands-400.eot
@@ -83,4 +81,3 @@ b3d8897e85a2b2c70cdea0c70f28e3c29a75714c7745054fa62743831c37d616  fonts/4iCv6KVj
 f6be9c6684826134102a1f20ac9c05c72185a0b50b75d40f88e10e4de32b68c5  fonts/4iCv6KVjbNBYlgoCxCvjvWyNL4U.woff2  https://fonts.gstatic.com/s/ubuntu/v21/4iCv6KVjbNBYlgoCxCvjvWyNL4U.woff2
 30073583012b73a5c05c290e601325850ddbc7c7a1241561ec9264b8744c2a86  fonts/4iCv6KVjbNBYlgoCxCvjvmyNL4U.woff2  https://fonts.gstatic.com/s/ubuntu/v21/4iCv6KVjbNBYlgoCxCvjvmyNL4U.woff2
 182794a1729d27aca4aca32422ec18e7dfa3b6b7a5de6eb59cc8cc404da964a6  favicon.ico  https://s3.amazonaws.com/scripting.com/favicon.ico
-79a482d0cd749beefc9c7d729835535b1922a855ed091877a5d9efd06887a7ed  images/rssChatForOG.png  https://imgs.scripting.com/2026/07/16/rssChatForOG.png

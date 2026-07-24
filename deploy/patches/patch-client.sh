@@ -31,8 +31,6 @@ rep "$IDX" "//s3.amazonaws.com/scripting.com/code/concord/testing/3.0.6/concords
 rep "$IDX" "//s3.amazonaws.com/fargo.io/code/shared/outliner.js" "/static/vendor/fargo/outliner.js"
 rep "$IDX" "//s3.amazonaws.com/scripting.com/code/outlinedialog/code.js" "/static/vendor/outlinedialog/code.js"
 rep "$IDX" "//s3.amazonaws.com/scripting.com/code/outlinedialog/styles.css" "/static/vendor/outlinedialog/styles.css"
-rep "$IDX" "//s3.amazonaws.com/scripting.com/code/feedland/home/sockets.js" "/static/vendor/feedland/sockets.js"
-rep "$IDX" "//s3.amazonaws.com/scripting.com/code/rsschat/feedlandsocket.js" "/static/vendor/rsschat/feedlandsocket.js"
 rep "$IDX" "//s3.amazonaws.com/fargo.io/code/markdownConverter.js" "/static/vendor/fargo/markdownConverter.js"
 rep "$IDX" "https://cdn.jsdelivr.net/npm/turndown@7.1.1/dist/turndown.js" "/static/vendor/turndown/turndown.js"
 
@@ -42,11 +40,6 @@ rep "$IDX" "//s3.amazonaws.com/scripting.com/code/rsschat/misc.js" "/static/clie
 rep "$IDX" "https://code.scripting.com/rsschat/api.js" "/static/client/api.js"
 rep "$IDX" "https://code.scripting.com/rsschat/styles.css" "/static/client/styles.css"
 rep "$IDX" "https://code.scripting.com/rsschat/code.js" "/static/client/code.js"
-
-# og:image and twitter:image:src -- a scraper, not the browser, fetches these, so they
-# must be absolute. [%urlServerForClient%] is substituted by daveappserver when it serves
-# the page, which makes them absolute on the operator's own domain instead of Dave's CDN.
-rep "$IDX" "https://imgs.scripting.com/2026/07/16/rssChatForOG.png" "[%urlServerForClient%]static/vendor/images/rssChatForOG.png"
 
 # overrides last in head, so its definitions win
 rep "$IDX" "</head>" "<script src=\"/static/vendor/overrides.js\"></script></head>"
