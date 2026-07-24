@@ -55,7 +55,7 @@ shell: ## Open a shell in the rsschat container
 env: ## Generate deploy/.env with random passwords (refuses to overwrite)
 	@bash deploy/scripts/generate-env.sh
 
-backup: ## Back up the database and feeds volume
+backup: ## Back up the database (the feeds live in it)
 	@bash deploy/scripts/backup.sh
 
 migrate: ## Apply a SQL migration: make migrate FILE=path/to.sql
@@ -70,7 +70,7 @@ test: ## Run the unit and build tests
 e2e: ## Run the full end-to-end test against the running stack
 	@bash deploy/scripts/e2e-test.sh
 
-clean: ## DESTROY the stack AND its data (mysql + feeds volumes)
+clean: ## DESTROY the stack AND its data (every volume)
 	@printf 'This deletes the database and all feeds. Type y to confirm: '; \
 		read ans; \
 		if [ "$$ans" = "y" ]; then $(COMPOSE) down -v; else echo "aborted."; fi
