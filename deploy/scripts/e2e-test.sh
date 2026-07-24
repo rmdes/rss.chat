@@ -18,6 +18,13 @@ EMAIL="e2e-$(date +%s)@example.com"
 NAME="e2e$(date +%s)"
 fail () { echo "E2E FAIL: $*" >&2; exit 1; }
 jsonget () { node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const v=JSON.parse(s)$1;console.log(v===undefined?'':v)})"; }
+subst () { # file, exact-from, to -- same fail-loud idea as patches/patch-client.sh's rep().
+	# A silent no-op here would leave the example app pointed at the public rss.chat, so
+	# the walk would test somebody else's server instead of this one.
+	local f="$1"; export FROM="$2" TO="$3"
+	grep -qF -- "$FROM" "$f" || fail "e2e: upstream drifted, string not found in $(basename "$f"): $FROM"
+	perl -pi -e 's/\Q$ENV{FROM}\E/$ENV{TO}/' "$f"
+}
 
 echo "-- 1 sign up ($NAME)"
 C "$BASE/createnewuser?email=$EMAIL&name=$NAME&urlredirect=$BASE/" > /dev/null
@@ -70,8 +77,8 @@ C "$BASE/users/$NAME/rss.xml" | grep -q "hello edited by e2e" || fail "edit not 
 echo "-- 8 threadwalker walks our feeds"
 TW=$(mktemp -d)
 cp ../examples/threadwalker/walker.js ../examples/threadwalker/package.json "$TW/"
-FROM="https://users.rss.network/manton/rss.xml" TO="$BASE/users/$NAME/rss.xml" perl -pi -e 's/\Q$ENV{FROM}\E/$ENV{TO}/' "$TW/walker.js"
-FROM="https://rss.chat/?id=204" TO="$BASE/?id=$ID" perl -pi -e 's/\Q$ENV{FROM}\E/$ENV{TO}/' "$TW/walker.js"
+subst "$TW/walker.js" "https://rss.chat/users/manton/rss.xml" "$BASE/users/$NAME/rss.xml"
+subst "$TW/walker.js" "https://rss.chat/?id=204" "$BASE/?id=$ID"
 (cd "$TW" && npm install --silent --no-audit --no-fund && NODE_TLS_REJECT_UNAUTHORIZED=0 node walker.js) > "$TW/out.txt" 2>/dev/null
 grep -q "hello edited by e2e" "$TW/out.txt" || fail "threadwalker missed the post"
 grep -q "a reply from e2e" "$TW/out.txt" || fail "threadwalker missed the reply"
