@@ -195,8 +195,15 @@ production. Fix it deliberately:
 - vendor hash mismatch: re-run `./pin-vendors.sh`, review the diff to
   `vendor.lock` before rebuilding.
 - patch mismatch: open `patches/patch-client.sh`, find the `rep` call whose
-  `FROM` string no longer appears in the file it targets, and adjust it to
-  match the new upstream text.
+  `FROM` string no longer appears in the file it targets, and decide which of
+  two things happened. Either upstream *moved* the asset, in which case adjust
+  the `FROM` to the new text; or upstream *removed* it, in which case retire
+  the whole `rep` line, along with its pin in `vendor.lock` and its entry in
+  `pin-vendors.sh`'s MANIFEST. Both happen: on 2026-07-24 three rules had to be
+  retired (two socket includes upstream inlined into `code.js`, and an
+  `og:image` tag it added and deleted a day later). Cache-buster changes
+  (`?x=1` → `?x=2`) never trip this, because the `FROM` strings deliberately
+  stop before the query.
 
 Then rebuild (`make build`) and re-run the test suite (`make test`, below)
 before trusting the result.
@@ -228,7 +235,7 @@ already have the current schema via `db/init/01-schema.sql`.
 ## Testing
 
 ```bash
-make test                           # unit + build tests (shim, config generator, vendor hashes, client patch)
+make test                           # unit + build tests (shims, config generator, vendor hashes, client patch)
 make e2e                            # full posting flow against a running stack
 ```
 
@@ -248,12 +255,13 @@ A few deliberate departures from upstream's defaults, and one upstream
 quirk worth knowing about:
 
 - **`prefs` defaults to `{}`, not `NULL`.** Upstream's `server/docs/install.md`
-  schema allows `prefs` to be NULL. `server/code/rssnetwork.js:655` (v0.5.25)
-  (`buildFeedForUser`) reads `userRec.prefs.myFeedTitle` unguarded, so a
-  user created through the API who posts before ever saving prefs crashed
-  the server process. `db/init/01-schema.sql` defaults new rows to an empty
-  JSON object instead. Existing installs: apply
+  schema allows `prefs` to be NULL. `buildFeedForUser` reads
+  `userRec.prefs.myFeedTitle` unguarded, so a user created through the API who
+  posts before ever saving prefs crashed the server process. `db/init/01-schema.sql`
+  defaults new rows to an empty JSON object instead. Existing installs: apply
   `deploy/db/migrations/2026-07-13-prefs-not-null.sql` via `scripts/migrate.sh`.
+  Still unfixed upstream as of server v0.6.3, where the read sits at
+  `server/code/rssnetwork.js:958` (it was `:655` when this was found in v0.5.25).
 - **`database.flUseMySql2: true`** in the generated config, so davesql uses
   the mysql2 driver -- MySQL 8's default auth plugin isn't supported by the
   legacy `mysql` driver this app also knows how to use.
@@ -265,4 +273,13 @@ quirk worth knowing about:
 - **`webSocketStartup: err.message == theWsServer.listen is not a function`**
   prints on every boot. It's harmless: the websocket server is already
   listening by the time that line runs, and the extra `.listen()` call is
-  dead code upstream. Live updates (new posts, likes) work regardless.
+  dead code upstream (`daveappserver`'s `appserver.js:431`, still present at
+  v0.8.4). Live updates (new posts, likes) work regardless.
+- **The AWS SDK is replaced by a stub**, not just unused. `davemail` requires
+  `aws-sdk` at load time and builds an SES client before it knows which
+  transport it will use, which put 101MB of end-of-support v2 SDK in the image
+  for a path that cannot run here -- `make-config.js` always sets `smtpHost`,
+  so mail always leaves over SMTP. `deploy/aws-sdk-shim/` satisfies the require
+  and throws if anything ever actually tries to send through SES. The practical
+  consequence for you: this instance cannot be pointed at Amazon SES directly.
+  Use SES the way you'd use any other relay, through `SMTP_*`.
