@@ -6,7 +6,10 @@ COPY deploy/vendor.sh deploy/vendor.lock /build/
 RUN bash /build/vendor.sh /build/vendor.lock /static/vendor
 
 # Stage 2: the app
-FROM node:20-bookworm-slim
+# node 20 reached end of life in April 2026. Nothing here needs a toolchain:
+# upstream pins better-sqlite3 as of v0.6.3 and that version ships prebuilt
+# binaries, so npm install fetches one instead of compiling.
+FROM node:22-bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
