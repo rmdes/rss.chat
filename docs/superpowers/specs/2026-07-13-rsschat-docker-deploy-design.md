@@ -1,7 +1,8 @@
 # rss.chat self-contained Docker deployment — design
 
 Date: 2026-07-13
-Status: implemented and running; amended 2026-07-16 for upstream v0.5.27
+Status: implemented and running; amended 2026-07-16 for upstream v0.5.27;
+maintenance addendum 2026-07-24 (Node 22, aws-sdk shim, upstream drift)
 Author: Ricardo (rmdes) with Claude Code
 
 > **Amendment, 2026-07-16 (server v0.5.27).** Upstream solved the S3 problem
@@ -325,3 +326,119 @@ path, which is exactly what a Docker deployment and API clients do:
    Overridable per-user via Settings, but the defaults should derive from
    config. (Low-priority companion note: the install docs should mention
    `flUseMySql2: true` for MySQL 8.)
+
+---
+
+## Maintenance addendum (2026-07-24) — upstream drift, and the dependency SQLite brought
+
+Nine days of upstream movement broke `make update`, reported by an operator
+running the overlay (issues are disabled on the fork, so it arrived by mail).
+Three independent failures, all the same shape: the overlay pins an exact
+string or an exact base image, and upstream moved. The fail-loud design caught
+two of them at build time; the third is the counter-example that proves why
+that design matters.
+
+### The build broke on a transitive native dependency
+
+Upstream v0.6.0 (2026-07-22) taught the server to run on SQLite. That work
+lives in `davesql`, so `davesql@0.7.x` began hard-depending on
+`better-sqlite3`, a native module. This overlay runs MySQL and never loads it
+— `davesql.js:270` requires it lazily, inside the SQLite branch — but npm
+installs it regardless, and it must either fetch a prebuilt binary or compile.
+
+At that point nothing pinned it, so npm resolved 13.x — which had **dropped
+`prebuild-install` entirely** (`"install": "node-gyp rebuild"`) and therefore
+always compiles from source. `node:20-bookworm-slim` carries no Python or C++
+toolchain, deliberately, so `make update` failed for anyone rebuilding. That
+is how this arrived: an operator reported it.
+
+**Upstream then fixed it at the source.** v0.6.3 pins
+`better-sqlite3: "11.10.0"` in `package.json`, and that version ships prebuilt
+binaries for Node 20 and Node 22 alike — a clean seven-second install, no
+compiler, on either runtime. So the overlay carries no dependency
+intervention of its own, and deliberately should not: an `overrides` pin here
+would silently fight upstream's chosen version, which is exactly the kind of
+divergence this overlay exists to avoid. (One was in place for a few hours
+between the report and upstream's pin; it was dropped once the pin landed.)
+
+What the overlay keeps is the base image move to `node:22-bookworm-slim`, on
+its own merits rather than as a build fix: Node 20 reached end of life in
+April 2026 and receives no further security updates. Build, 18 unit tests and
+all ten e2e steps pass on 22.
+
+### Three vendor/patch rules outlived the thing they patched
+
+`patch-client.sh` fails the build when a string it expects is missing, which is
+how these surfaced:
+
+- **The two socket includes** (`feedland/home/sockets.js`,
+  `rsschat/feedlandsocket.js`) — on 2026-07-19 upstream inlined the
+  `firehoseSocket` object into `client/code/code.js` (now line 382) and dropped
+  both `<script>` tags. Rules and pins retired.
+- **`og:image` / `twitter:image:src`** — upstream added them 2026-07-16 and
+  **deleted them again on 2026-07-17**, one day after this overlay vendored the
+  image so link previews would not come from Dave's CDN. The rule, its test
+  assertion, and the `rssChatForOG.png` pin are gone. Link previews now carry
+  no image; that is upstream's current behavior, not a regression introduced
+  here. Re-adding one is a product decision, and `patches/overrides.js` is
+  where it would go.
+
+Pin count: 84 at first ship, 86 once the favicon and og:image were vendored,
+**83 today**.
+
+### The one that failed silently — and the guard it was missing
+
+`e2e-test.sh` step 8 points `examples/threadwalker` at the local instance by
+string substitution. Upstream repointed the walker's starting feed on
+2026-07-18 (`users.rss.network` → `rss.chat/users/manton/rss.xml`), and unlike
+`patch-client.sh`'s `rep()`, this substitution was a bare `perl -pi -e` with
+**no check that it matched anything**. It silently no-oped, so the walk left
+the instance entirely and exercised the public rss.chat — inside a test whose
+step 10 asserts this instance makes no external calls. It had been passing
+that way.
+
+The string is corrected and the substitution now runs through a `subst()`
+helper carrying `rep()`'s fail-loud check. The lesson generalizes: in this
+overlay **a substitution without a not-found guard is a latent lie**, because
+its failure mode is silence.
+
+### `pin-vendors.sh` could not regenerate its own lock
+
+`favicon.ico` was appended to `vendor.lock` by hand when it was vendored
+(2026-07-16) but never added to `pin-vendors.sh`'s MANIFEST, so regenerating
+the lock would have silently dropped the pin — and with it `/favicon.ico`'s
+escape from amazonaws.com. Added. Every entry in `vendor.lock` is now
+reproducible from the script, checked in both directions.
+
+### aws-sdk: 101MB for a code path that cannot run
+
+The design's premise is "no Amazon in the image". `daves3` was shimmed on day
+one, but the AWS SDK was still shipping — 101MB of an end-of-support v2 SDK,
+59% of `node_modules` — pulled in by `davemail`, not by `daves3`.
+
+It cannot simply be deleted: `davemail/sendmail.js` requires it at the top of
+the file and constructs `new AWS.SES (...)` **while the module loads**, so a
+missing package (or a throwing Proxy like the daves3 shim) breaks startup
+before any config is read. It is also genuinely unreachable here:
+`appserver.js:1426` selects `flUseSes: false` whenever `smtpHost` is set, and
+`make-config.js` always sets it (default `mailpit`), so mail always leaves
+through nodemailer.
+
+`deploy/aws-sdk-shim/` is therefore a stub whose *constructor succeeds* and
+whose `sendEmail` throws, wrapped in a Proxy so any other AWS service — or
+future drift in davemail — fails loudly instead of as `undefined is not a
+function`. It follows the daves3-shim pattern exactly: stub + `package.json` +
+`test.js` wired into `make test`, plus an e2e assertion that the container log
+never mentions it.
+
+Result: `node_modules` 172M → 72M, image **653MB → 536MB**. One subtlety worth
+recording: `rm -rf node_modules/aws-sdk` must share the `RUN` layer with
+`npm install`. Deleting it in a later layer hides the files but reclaims
+nothing — the first attempt did exactly that and the image stayed at 653MB.
+
+### Verification
+
+`make test` (18 unit tests, up from 14, plus vendor hashes, client patch and
+its assertions), a full `docker build`, and `make up && make e2e` — all ten
+e2e steps, including the MailPit magic link, which is what proves the mail
+stub is safe.

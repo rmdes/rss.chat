@@ -1,7 +1,7 @@
 # rss.chat deployment Makefile — design
 
 Date: 2026-07-13
-Status: approved (design), implementation not started
+Status: implemented and shipped 2026-07-13; addendum 2026-07-24
 Author: Ricardo (rmdes) with Claude Code
 
 ## Motivation
@@ -97,3 +97,22 @@ is extended to mention the `Makefile`.
 The `Makefile` is a new file at the repo root (like `.dockerignore`); no file
 under `client/` or `server/` is touched. `git pull` from upstream stays
 conflict-free unless upstream itself adds a root `Makefile`.
+
+---
+
+## Addendum (2026-07-24) — what shipped, and what moved since
+
+The Makefile shipped on 2026-07-13 with every target in the table above, and
+has been the documented front door since (the status line said "implementation
+not started" until today; corrected). Two details have drifted from the table:
+
+- **`test`** runs three unit files now, not two: `deploy/daves3-shim/test.js
+  deploy/aws-sdk-shim/test.js deploy/test-make-config.js` — 18 tests, up from
+  14. The aws-sdk shim arrived 2026-07-24; the reasoning is in the deploy
+  design doc's maintenance addendum.
+- **`clean`** destroys `mysql-data`, `static-data`, `rsschat-data`,
+  `caddy-data` and `caddy-config`. There is no feeds volume: feeds moved into
+  the database on 2026-07-16. The `##` help strings for `clean` and `backup`
+  had described a feeds volume since before that move; corrected 2026-07-24
+  to match what the targets actually do (`backup.sh` has dumped the database
+  only, feeds included as `files` rows, since the switch).

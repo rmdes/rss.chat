@@ -1267,3 +1267,48 @@ task's code block above, the difference is one of these:
 Three upstream bugs found (NULL-prefs crash, dead `theWsServer.listen()`,
 hardcoded `rss.network` feed strings) are detailed in the design doc's
 implementation addendum and go to the scripting/rss.chat issue.
+
+---
+
+## Maintenance addendum (2026-07-24) — upstream drift since execution
+
+The task code blocks above are a 2026-07-13 snapshot. Nine days of upstream
+commits invalidated specific lines in them, and `make update` broke for an
+operator running the overlay. The shipped code is authoritative; the full
+reasoning is in the design doc's maintenance addendum. What moved, by task:
+
+- **T3 (vendor):** `feedland/sockets.js` and `rsschat/feedlandsocket.js`
+  (lines 412 and 419 above) are gone from the manifest and the lock —
+  upstream inlined the `firehoseSocket` object into `client/code/code.js` on
+  07-19 and dropped both `<script>` tags. `favicon.ico` was **added** to
+  `pin-vendors.sh`'s MANIFEST: it had been hand-appended to `vendor.lock` back
+  on 07-16, so the script could not regenerate its own lock without silently
+  dropping the pin. Real pin count is now **83** (84 at ship, 86 with the
+  favicon and og:image, minus three retired today).
+- **T4 (patches):** the two socket `rep` lines (561–562 above) retire with
+  them, and so does the `og:image` rewrite plus its assertion in
+  `test-patch-client.sh` — upstream added those meta tags on 07-16 and deleted
+  them again on 07-17.
+- **T5 (image):** `FROM node:20-bookworm-slim` (line 651 above) is now
+  `node:22-bookworm-slim` — Node 20 reached end of life in April 2026. It is a
+  runtime-hygiene move, not a build fix: upstream's v0.6.0 SQLite work made
+  `better-sqlite3` a hard dependency of `davesql`, and while it was unpinned
+  npm resolved 13.x, which always compiles from source and broke the build in
+  this toolchain-free image — but upstream v0.6.3 pins 11.10.0 itself, and
+  that ships prebuilds for Node 20 and 22 alike, so the overlay carries no pin
+  of its own. The `npm install` line gained an `rm -rf node_modules/aws-sdk`
+  **inside the same RUN layer** — a later layer would hide the files without
+  reclaiming the space. New `deploy/aws-sdk-shim/` replaces the SDK with a
+  stub whose constructor succeeds and whose `sendEmail` throws; image
+  653MB → 536MB.
+- **T8 (e2e):** the threadwalker substitution (line 1143 above) targeted
+  `users.rss.network`, which upstream repointed on 07-18 — and it had no
+  not-found guard, so it silently no-oped and the walk tested the *public*
+  rss.chat rather than the instance, inside a test whose step 10 asserts no
+  external calls. Corrected, and routed through a `subst()` helper carrying
+  `patch-client.sh`'s fail-loud check. Step 10 also now asserts the aws-sdk
+  stub is never reached.
+- **Tech stack:** Node 22, not the Node 20 in the header above.
+
+`make test` is now 18 unit tests (the four aws-sdk shim tests are new), and
+`make e2e` passes all ten steps.
