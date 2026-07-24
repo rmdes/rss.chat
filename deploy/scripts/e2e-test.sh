@@ -94,5 +94,7 @@ echo "-- 10 no external calls"
 docker compose logs rsschat 2>&1 | grep -v '"flRssCloudEnabled"' | grep -iE "amazonaws|scripting\.com|rsscloud" && fail "server log mentions external hosts" || true
 #feeds live in the database; nothing may reach the daves3 stub
 docker compose logs rsschat 2>&1 | grep -i "daves3 shim" && fail "something called daves3 -- feeds should go to the database" || true
+#mail leaves over smtp; nothing may reach the aws-sdk stub
+docker compose logs rsschat 2>&1 | grep -i "aws-sdk shim" && fail "something called aws-sdk -- mail should go over smtp" || true
 
 echo "E2E: ALL CHECKS PASSED"

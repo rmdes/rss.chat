@@ -1,0 +1,6 @@
+{
+	"name": "aws-sdk",
+	"version": "2.1693.0-shim",
+	"description": "deploy overlay stub replacing the real aws-sdk -- see aws-sdk.js",
+	"main": "aws-sdk.js"
+	}

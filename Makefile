@@ -63,7 +63,7 @@ migrate: ## Apply a SQL migration: make migrate FILE=path/to.sql
 	@bash deploy/scripts/migrate.sh "$(FILE)"
 
 test: ## Run the unit and build tests
-	@node --test deploy/daves3-shim/test.js deploy/test-make-config.js
+	@node --test deploy/daves3-shim/test.js deploy/aws-sdk-shim/test.js deploy/test-make-config.js
 	@bash deploy/test-vendor.sh
 	@bash deploy/patches/test-patch-client.sh
 

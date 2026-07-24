@@ -14,9 +14,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf 
 WORKDIR /app
 
 COPY server/code/package.json ./
-RUN npm install --omit=dev --no-audit --no-fund
+# davemail requires aws-sdk eagerly and builds an SES client as it loads, but this server
+# always sends over SMTP -- 101mb of end-of-support v2 SDK for a path that cannot run here.
+# The delete shares the install's layer; a later RUN would hide the files without
+# reclaiming the space, since the earlier layer still carries them.
+RUN npm install --omit=dev --no-audit --no-fund \
+	&& rm -rf node_modules/aws-sdk
 # the filesystem shim replaces the real daves3 (which talks to Amazon)
 COPY deploy/daves3-shim/daves3.js node_modules/daves3/daves3.js
+COPY deploy/aws-sdk-shim/aws-sdk.js deploy/aws-sdk-shim/package.json node_modules/aws-sdk/
 
 COPY server/code/rssnetwork.js server/code/emailtemplate.html ./
 COPY deploy/make-config.js deploy/entrypoint.sh ./
